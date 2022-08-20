@@ -49,7 +49,15 @@ namespace CSharpChainServer
 
 		public Block Block(int index)
 		{
-			return blockchain.Chain[index];
+            try{
+				return blockchain.Chain[index];
+            }
+            catch
+            {
+				Console.WriteLine("Out of Bounds Error, returning Genesis block");
+				return blockchain.Chain[0];
+            }
+			
 		}
 
 		public int BlockchainLength()
@@ -78,7 +86,7 @@ namespace CSharpChainServer
 			var blockServices = new BlockServices(block);
 			blockServices.MineBlock(blockchain.Difficulty);
 			blockchain.Chain.Add(block);
-
+			Console.WriteLine($"  Mining Reward has been assigned to: http://localhost:{miningRewardAddress}");
 			//clear pending transactions (all pending transactions are in a block
 			blockchain.PendingTransactions = new List<Transaction>();
 			return block;

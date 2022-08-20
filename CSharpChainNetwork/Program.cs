@@ -249,6 +249,11 @@ namespace CSharpChainNetwork
 			Console.WriteLine("");
 		}
 
+		static void showLine()
+        {
+			Console.WriteLine("-----------------");
+		}
+
 		static void CommandBlockchainLength()
 		{
 			var length = blockchainServices.BlockchainLength();
@@ -264,7 +269,13 @@ namespace CSharpChainNetwork
 			Console.WriteLine($"    Nonce: {block.Nonce}:");
 			Console.WriteLine($"    Previous hash: {block.PreviousHash}:");
 			Console.WriteLine($"    #Transactions : {block.Transactions.Count}:");
-			Console.WriteLine("");
+			showLine();
+			foreach (Transaction trans in block.Transactions)
+            {
+				Console.WriteLine(trans.ToString());
+				showLine();
+            }
+			
 		}
 
 		static void CommandBalance(string Address)
