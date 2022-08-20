@@ -21,5 +21,13 @@ namespace CSharpChainModel
 			this.Description = description;
 		}
 
+        public override String ToString()
+        {
+			return $" Sender Address: {this.SenderAddress} \n " +
+				$"Receiver Address: {this.ReceiverAddress} \n " +
+				$"For the Amount: {this.Amount} \n " +
+				$"Description: {this.Description} ";
+		}
+
     }
 }
