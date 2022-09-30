@@ -126,6 +126,7 @@ namespace CSharpChainNetwork
 						case "bu":
 							CommandBlockchainUpdate();
 							break;
+						case "test": GenerateBlocks(); break;
 
 						default:
 							Console.WriteLine("Ups! I don't understand...");
@@ -184,6 +185,7 @@ namespace CSharpChainNetwork
 			Console.WriteLine("b, block [index] = list info about specified block.");
 			Console.WriteLine("bu, update, blockchain-update = update blockchain to the longest in network.");
 			Console.WriteLine("bal, balance-get [address] = get balance for specified address.");
+			Console.WriteLine("test, for generating a transaction auto");
 			Console.WriteLine();
 			Console.WriteLine("Email me: dejan@mauer.si");
 			Console.WriteLine();
@@ -221,6 +223,23 @@ namespace CSharpChainNetwork
 			}
 			Console.WriteLine("");
 		}
+
+		static void GenerateBlocks()
+        {
+			Random rnd = new Random();
+			for(int i = 0; i < 300; i++)
+            {
+				int amount = rnd.Next(1, 1000);
+				CommandTransactionsAdd("3000", "3001", amount.ToString(), i.ToString());
+
+				if((i % 10) == 0)
+                {
+					CommandBlockchainMine("3002");
+
+				}
+			}
+			
+        }
 
 		static void CommandBlockchainMine(string RewardAddress)
 		{
