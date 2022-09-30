@@ -21,18 +21,22 @@ I would suggest you to build the project CSharpChainNetwork. The project was wri
 go to the ./bin folder and start first node with the following parameters from the command line:
 
 ```
-CSharpChainNetwork.exe http://localhost:8000
+CSharpChainNetwork.exe http://localhost:3000
 ```
 
-This will run first node on local machine on port 8000.
+This will run first node on local machine on port 3000.
 
-After the first node is up and running, you can start new one on different port. For example on 7000:
+After the first node is up and running, you can start new one on different port. For example on 3001:
 
 ```
-CSharpChainNetwork.exe http://localhost:7000
+CSharpChainNetwork.exe http://localhost:3001
 ```
 
 You can run as many nodes as you wish. 
+It is recommended that you run 3 nodes, on the following ports:3000, 3001 and 3002.
+
+This is so the test functions can run with the full extent of the generation being used. 
+
 
 Once the nodes are up and running you can start typing commands, like adding new transactions, check pending transactions, mine the blocks.
 Until you connect two nodes you are operating on a local level. When you would like to connect nodes, use command **na**. 
@@ -97,4 +101,8 @@ Below is a list of commands you can use once the node is up and running:
 **bu, update, blockchain-update** = update blockchain to the longest in network.
 
 **bal, balance-get [address]** = get balance for specified address.
+
+**gen = Generates 300 transactions and mines a block every 10/11 transactions
+
+**list = lists all the blocks, header details and the transactions stored. 
 
