@@ -102,7 +102,7 @@ Below is a list of commands you can use once the node is up and running:
 
 **bal, balance-get [address]** = get balance for specified address.
 
-**gen = Generates 300 transactions and mines a block every 10/11 transactions
+**gen** = Generates 300 transactions and mines a block every 10/11 transactions
 
-**list = lists all the blocks, header details and the transactions stored. 
+**list** = lists all the blocks, header details and the transactions stored. 
 
