@@ -126,8 +126,8 @@ namespace CSharpChainNetwork
 						case "bu":
 							CommandBlockchainUpdate();
 							break;
-						case "test": GenerateBlocks(); break;
-
+						case "gen": GenerateBlocks(); break;
+						case "list": ListAll(); break;
 						default:
 							Console.WriteLine("Ups! I don't understand...");
 							Console.WriteLine("");
@@ -238,7 +238,16 @@ namespace CSharpChainNetwork
 
 				}
 			}
+			CommandBlockchainMine("3002");
 			
+        }
+
+		static void ListAll()
+        {
+			for(int i = 0; i < blockchainServices.BlockchainLength(); i++)
+            {
+				CommandBlock(i);
+            }
         }
 
 		static void CommandBlockchainMine(string RewardAddress)
