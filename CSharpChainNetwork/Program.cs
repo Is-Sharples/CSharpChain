@@ -126,8 +126,13 @@ namespace CSharpChainNetwork
 						case "bu":
 							CommandBlockchainUpdate();
 							break;
-						case "gen": GenerateBlocks(); break;
-						case "list": ListAll(); break;
+						case "gen": 
+							GenerateBlocks(); 
+							break;
+						case "list":
+							//ListAll(); 
+							showHash();
+							break;
 						default:
 							Console.WriteLine("Ups! I don't understand...");
 							Console.WriteLine("");
@@ -185,7 +190,8 @@ namespace CSharpChainNetwork
 			Console.WriteLine("b, block [index] = list info about specified block.");
 			Console.WriteLine("bu, update, blockchain-update = update blockchain to the longest in network.");
 			Console.WriteLine("bal, balance-get [address] = get balance for specified address.");
-			Console.WriteLine("test, for generating a transaction auto");
+			Console.WriteLine("gen, for generating a transaction auto");
+			Console.WriteLine("list, for showing a list of all the transaction on chain currently");
 			Console.WriteLine();
 			Console.WriteLine("Email me: dejan@mauer.si");
 			Console.WriteLine();
@@ -227,12 +233,19 @@ namespace CSharpChainNetwork
 		static void GenerateBlocks()
         {
 			Random rnd = new Random();
-			for(int i = 0; i < 300; i++)
+			for(int i = 0; i < 1280; i++)
             {
 				int amount = rnd.Next(1, 1000);
-				CommandTransactionsAdd("3000", "3001", amount.ToString(), i.ToString());
+				int baseIP = 3000;
+				int sender = rnd.Next(0, 6);
+				int receiver = rnd.Next(0, 6);
+				while(sender == receiver)
+                {
+					receiver = rnd.Next(0, 3);
+                }
+				CommandTransactionsAdd((baseIP+sender).ToString(), (baseIP+receiver).ToString(), amount.ToString(), i.ToString());
 
-				if((i % 10) == 0)
+				if((i % 256) == 0)
                 {
 					CommandBlockchainMine("3002");
 
@@ -281,6 +294,11 @@ namespace CSharpChainNetwork
         {
 			Console.WriteLine("-----------------");
 		}
+
+		static void showHash()
+        {
+			blockchainServices.TraverseChain();
+        }
 
 		static void CommandBlockchainLength()
 		{

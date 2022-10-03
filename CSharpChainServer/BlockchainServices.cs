@@ -2,12 +2,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Newtonsoft.Json;
+using System.IO;
 
 namespace CSharpChainServer
 {
-	public class BlockchainServices
+    public class BlockchainServices
 	{
 		public Blockchain Blockchain
 		{
@@ -64,6 +64,22 @@ namespace CSharpChainServer
 		{
 			return blockchain.Chain.Count();
 		}
+
+		public async void TraverseChain()
+        {
+			string json = JsonConvert.SerializeObject(blockchain.Chain, Formatting.Indented);
+			Console.WriteLine(json);
+			StreamWriter file = new StreamWriter("C:/temp/test.json");
+
+			await file.WriteLineAsync(json);
+
+			file.Close();
+
+			foreach(Block block in blockchain.Chain)
+            {
+				Console.WriteLine("Hash of Block:"+block.Hash);
+            }
+        }
 
 		public void AddTransaction(Transaction transaction)
 		{
