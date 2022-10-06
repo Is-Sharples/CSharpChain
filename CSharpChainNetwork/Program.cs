@@ -2,7 +2,9 @@
 using CSharpChainServer;
 using Microsoft.Owin.Hosting;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -132,6 +134,7 @@ namespace CSharpChainNetwork
 						case "list":
 							//ListAll(); 
 							showHash();
+							ReadFromJson();
 							break;
 						default:
 							Console.WriteLine("Ups! I don't understand...");
@@ -233,7 +236,7 @@ namespace CSharpChainNetwork
 		static void GenerateBlocks()
         {
 			Random rnd = new Random();
-			for(int i = 0; i < 1280; i++)
+			for(int i = 0; i < 40; i++)
             {
 				int amount = rnd.Next(1, 1000);
 				int baseIP = 3000;
@@ -245,7 +248,7 @@ namespace CSharpChainNetwork
                 }
 				CommandTransactionsAdd((baseIP+sender).ToString(), (baseIP+receiver).ToString(), amount.ToString(), i.ToString());
 
-				if((i % 256) == 0)
+				if((i % 10) == 0)
                 {
 					CommandBlockchainMine("3002");
 
@@ -261,6 +264,13 @@ namespace CSharpChainNetwork
             {
 				CommandBlock(i);
             }
+        }
+
+		static void ReadFromJson()
+        {
+			StreamReader sr = new StreamReader("C:/temp/test.json");
+			//Console.WriteLine(sr.ReadToEnd());
+			sr.Close();
         }
 
 		static void CommandBlockchainMine(string RewardAddress)
