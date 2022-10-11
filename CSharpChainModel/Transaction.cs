@@ -2,14 +2,19 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-
+using FileHelpers;
 namespace CSharpChainModel
-{
-    public class Transaction
+{	
+	[FixedLengthRecord]
+	public class Transaction
     {
+		[FieldFixedLength(10)]
 		public string SenderAddress;
+		[FieldFixedLength(10)]
 		public string ReceiverAddress;
+		[FieldFixedLength(10)]
 		public decimal Amount;
+		[FieldFixedLength(10)]
 		public string Description;
 		
 

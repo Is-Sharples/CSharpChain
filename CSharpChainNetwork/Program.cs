@@ -10,7 +10,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-
+using FileHelpers;
 namespace CSharpChainNetwork
 {
 	static class Program
@@ -136,6 +136,14 @@ namespace CSharpChainNetwork
 							//ListAll(); 
 							showHash();
 							ReadFromJson();
+							break;
+						case "write":
+						case "w":
+							WriteToBinary();
+							break;
+						case "read":
+						case "r":
+							ReadFromBinary();
 							break;
 						default:
 							Console.WriteLine("Ups! I don't understand...");
@@ -266,28 +274,66 @@ namespace CSharpChainNetwork
 				CommandBlock(i);
             }
         }
-		//learn about CMM (Project Management)
+		static void WriteToBinary()
+        {
+			List<Block> list = blockchainServices.Blockchain.Chain;
+			
+			var engine = new FileHelperEngine<Block>();
+			
+			engine.WriteFile("C:/temp/Output.txt", list);
+			
+			
+        }
+
+		static void ReadFromBinary()
+        {
+			var engine = new FileHelperEngine<Block>();
+			Block[] output = engine.ReadFile("C:/temp/convert.txt");
+
+			foreach(Block block in output)
+            {
+				Console.WriteLine(block.ToString());
+				foreach(Transaction trans in block.Transactions)
+                {
+					showLine();
+					Console.WriteLine(trans.ToString());
+                }
+				showLine();
+            }
+			
+
+		}
 
 		static void ReadFromJson()
         {
+			string origin = "C:/temp/Output.txt";
+			StreamReader textReader = new StreamReader(origin);
 			string filepath = "C:/temp/test.dat";
-			string tester = "Hello";
+			
 			Stream writeStream = File.Open(filepath, FileMode.Create);
-			BinaryWriter binaryWriter = new BinaryWriter(writeStream, Encoding.UTF8);	
+			BinaryWriter binaryWriter = new BinaryWriter(writeStream, Encoding.ASCII);
+			binaryWriter.Write(textReader.ReadToEnd());
 			
-			binaryWriter.Write(tester);
+			//Closing the writing streams
 			writeStream.Close();
-			Stream readStream = File.Open(filepath,FileMode.Open);
-			BinaryReader binReader = new BinaryReader(readStream, Encoding.UTF8);
-			binReader.ReadChar();
-			Console.WriteLine(binReader.ReadChar());
-			Console.WriteLine(binReader.ReadChar());
-			Console.WriteLine(binReader.ReadChar());
-			Console.WriteLine(binReader.ReadChar());
-			Console.WriteLine(binReader.ReadChar());
+			textReader.Close();
 			binaryWriter.Close();
+
+			showLine();
+			Console.WriteLine("Successfull Write");
+			//2 streams for binary reader and final stream for text writer
+			Stream readStream = File.Open(filepath,FileMode.Open);
+			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
+			StreamWriter streamWriter = new StreamWriter("C:/temp/convert.txt");
+			//writing to the file directly from reader
+			while(binReader.PeekChar() != -1)
+            {
+				streamWriter.Write(binReader.ReadString());
+			}
+			//closing the streams 
+			streamWriter.Close();
 			binReader.Close();
-			
+			readStream.Close();
         }
 		static String GetDataFromLine(string line, int type)
         {
