@@ -132,6 +132,7 @@ namespace CSharpChainNetwork
 							GenerateBlocks(); 
 							break;
 						case "list":
+						case "l":
 							//ListAll(); 
 							showHash();
 							ReadFromJson();
@@ -194,7 +195,7 @@ namespace CSharpChainNetwork
 			Console.WriteLine("bu, update, blockchain-update = update blockchain to the longest in network.");
 			Console.WriteLine("bal, balance-get [address] = get balance for specified address.");
 			Console.WriteLine("gen, for generating a transaction auto");
-			Console.WriteLine("list, for showing a list of all the transaction on chain currently");
+			Console.WriteLine("l, list, for showing a list of all the transaction on chain currently");
 			Console.WriteLine();
 			Console.WriteLine("Email me: dejan@mauer.si");
 			Console.WriteLine();
@@ -265,14 +266,46 @@ namespace CSharpChainNetwork
 				CommandBlock(i);
             }
         }
+		//learn about CMM (Project Management)
 
 		static void ReadFromJson()
         {
-			StreamReader sr = new StreamReader("C:/temp/test.json");
-			//Console.WriteLine(sr.ReadToEnd());
-			sr.Close();
+			string filepath = "C:/temp/test.dat";
+			string tester = "Hello";
+			Stream writeStream = File.Open(filepath, FileMode.Create);
+			BinaryWriter binaryWriter = new BinaryWriter(writeStream, Encoding.UTF8);	
+			
+			binaryWriter.Write(tester);
+			writeStream.Close();
+			Stream readStream = File.Open(filepath,FileMode.Open);
+			BinaryReader binReader = new BinaryReader(readStream, Encoding.UTF8);
+			binReader.ReadChar();
+			Console.WriteLine(binReader.ReadChar());
+			Console.WriteLine(binReader.ReadChar());
+			Console.WriteLine(binReader.ReadChar());
+			Console.WriteLine(binReader.ReadChar());
+			Console.WriteLine(binReader.ReadChar());
+			binaryWriter.Close();
+			binReader.Close();
+			
         }
-
+		static String GetDataFromLine(string line, int type)
+        {
+			string formatted = line.Substring((line.IndexOf(":")) + 1).Trim();
+			formatted = formatted.Remove(formatted.Length - 1);
+			return formatted;
+		}
+		static String GetDataFromLine(string line)
+        {
+			string formatted = line.Substring((line.IndexOf(":")) + 1).Trim();
+			
+			if (formatted.Length > 2)
+			{
+				formatted = formatted.Remove(formatted.Length - 2);
+				formatted = formatted.Remove(0, 1);
+			}
+			return formatted;
+        }
 		static void CommandBlockchainMine(string RewardAddress)
 		{
 			Console.WriteLine($"  Mining new block... Difficulty {blockchainServices.Blockchain.Difficulty}.");

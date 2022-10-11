@@ -65,16 +65,18 @@ namespace CSharpChainServer
 			return blockchain.Chain.Count();
 		}
 
-		public async void TraverseChain()
+		public void TraverseChain()
         {
-			string json = JsonConvert.SerializeObject(blockchain.Chain, Formatting.Indented);
-			Console.WriteLine(json);
-			StreamWriter file = new StreamWriter("C:/temp/test.json");
+			if(blockchain.Chain.Count > 2)
+            {
+				string json = JsonConvert.SerializeObject(blockchain.Chain, Formatting.Indented);
+				StreamWriter file = new StreamWriter("C:/temp/test.json");
 
-			await file.WriteLineAsync(json);
-
-			file.Close();
-
+				file.WriteLine(json);
+				file.Close();
+			}
+			
+			
 			foreach(Block block in blockchain.Chain)
             {
 				Console.WriteLine("Hash of Block:"+block.Hash);
