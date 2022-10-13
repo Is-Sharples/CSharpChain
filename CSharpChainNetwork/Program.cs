@@ -131,19 +131,13 @@ namespace CSharpChainNetwork
 						case "gen": 
 							GenerateBlocks(); 
 							break;
-						case "list":
-						case "l":
-							//ListAll(); 
-							showHash();
-							ReadFromJson();
-							break;
 						case "write":
 						case "w":
-							WriteToBinary();
+							WriteFromFixedLengthToBinary();
 							break;
 						case "read":
 						case "r":
-							ReadFromBinary();
+							ReadFromConvertedBinary();
 							break;
 						default:
 							Console.WriteLine("Ups! I don't understand...");
@@ -203,7 +197,8 @@ namespace CSharpChainNetwork
 			Console.WriteLine("bu, update, blockchain-update = update blockchain to the longest in network.");
 			Console.WriteLine("bal, balance-get [address] = get balance for specified address.");
 			Console.WriteLine("gen, for generating a transaction auto");
-			Console.WriteLine("l, list, for showing a list of all the transaction on chain currently");
+			Console.WriteLine("w, write, For Writing the blockchain to FixedLength Records");
+			Console.WriteLine("r, read, For reading from binary file");
 			Console.WriteLine();
 			Console.WriteLine("Email me: dejan@mauer.si");
 			Console.WriteLine();
@@ -245,7 +240,7 @@ namespace CSharpChainNetwork
 		static void GenerateBlocks()
         {
 			Random rnd = new Random();
-			for(int i = 0; i < 40; i++)
+			for(int i = 0; i < 10; i++)
             {
 				int amount = rnd.Next(1, 1000);
 				int baseIP = 3000;
@@ -257,7 +252,7 @@ namespace CSharpChainNetwork
                 }
 				CommandTransactionsAdd((baseIP+sender).ToString(), (baseIP+receiver).ToString(), amount.ToString(), i.ToString());
 
-				if((i % 10) == 0)
+				if((i % 2) == 0)
                 {
 					CommandBlockchainMine("3002");
 
@@ -274,18 +269,18 @@ namespace CSharpChainNetwork
 				CommandBlock(i);
             }
         }
-		static void WriteToBinary()
+		static void WriteToFixedLengthRecord()
         {
 			List<Block> list = blockchainServices.Blockchain.Chain;
 			
 			var engine = new FileHelperEngine<Block>();
 			
 			engine.WriteFile("C:/temp/Output.txt", list);
-			
+			Console.WriteLine("Written to Output.txt");
 			
         }
 
-		static void ReadFromBinary()
+		static void ReadFromConvertedBinary()
         {
 			var engine = new FileHelperEngine<Block>();
 			Block[] output = engine.ReadFile("C:/temp/convert.txt");
@@ -300,12 +295,14 @@ namespace CSharpChainNetwork
                 }
 				showLine();
             }
-			
+			Console.WriteLine("Read file from convert.txt");
 
 		}
 
-		static void ReadFromJson()
+		static void WriteFromFixedLengthToBinary()
         {
+			WriteToFixedLengthRecord();
+
 			string origin = "C:/temp/Output.txt";
 			StreamReader textReader = new StreamReader(origin);
 			string filepath = "C:/temp/test.dat";
@@ -320,7 +317,7 @@ namespace CSharpChainNetwork
 			binaryWriter.Close();
 
 			showLine();
-			Console.WriteLine("Successfull Write");
+			Console.WriteLine("Successfull Write to test.dat");
 			//2 streams for binary reader and final stream for text writer
 			Stream readStream = File.Open(filepath,FileMode.Open);
 			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
@@ -330,27 +327,12 @@ namespace CSharpChainNetwork
             {
 				streamWriter.Write(binReader.ReadString());
 			}
+
+			Console.WriteLine("Wrote from test.dat to convert.txt");
 			//closing the streams 
 			streamWriter.Close();
 			binReader.Close();
 			readStream.Close();
-        }
-		static String GetDataFromLine(string line, int type)
-        {
-			string formatted = line.Substring((line.IndexOf(":")) + 1).Trim();
-			formatted = formatted.Remove(formatted.Length - 1);
-			return formatted;
-		}
-		static String GetDataFromLine(string line)
-        {
-			string formatted = line.Substring((line.IndexOf(":")) + 1).Trim();
-			
-			if (formatted.Length > 2)
-			{
-				formatted = formatted.Remove(formatted.Length - 2);
-				formatted = formatted.Remove(0, 1);
-			}
-			return formatted;
         }
 		static void CommandBlockchainMine(string RewardAddress)
 		{

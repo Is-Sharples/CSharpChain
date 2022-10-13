@@ -11,15 +11,15 @@ namespace CSharpChainModel
 	[FixedLengthRecord]
 	public class Block
 	{
-		[FieldFixedLength(30)]
+		[FieldFixedLength(64)]
 		public string PreviousHash;
-		[FieldFixedLength(10)]
+		[FieldFixedLength(8)]
 		[FieldConverter(ConverterKind.Date, "ddMMyyyy")]
 		public DateTime TimeStamp;
-		[FieldFixedLength(250)]
+		[FieldFixedLength(366)]
 		[FieldConverter(typeof (TransactionsConvertor))]
 		public List<Transaction> Transactions;
-		[FieldFixedLength(30)]
+		[FieldFixedLength(64)]
 		public string Hash;
 		[FieldFixedLength(10)]
 		public long Nonce;
