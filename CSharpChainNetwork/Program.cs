@@ -275,8 +275,8 @@ namespace CSharpChainNetwork
 			
 			var engine = new FileHelperEngine<Block>();
 			
-			engine.WriteFile("C:/temp/Output.txt", list);
-			Console.WriteLine("Written to Output.txt");
+			engine.WriteFile("C:/temp/FixedLength.txt", list);
+			Console.WriteLine("Written to FixedLength.txt");
 			
         }
 
@@ -284,7 +284,7 @@ namespace CSharpChainNetwork
         {
 			var engine = new FileHelperEngine<Block>();
 			Block[] output = engine.ReadFile("C:/temp/convert.txt");
-			List<Block> tempChain = new List<Block>();
+			List<Block> tempChain;
 			tempChain = output.ToList();		
 
 			Console.WriteLine("Overwrite chain from memory? Type Yes/Y for yes.");
@@ -310,34 +310,41 @@ namespace CSharpChainNetwork
 
 		static void WriteFromFixedLengthToBinary()
         {
+			//Write from Blockchain to Text
 			WriteToFixedLengthRecord();
 
-			string origin = "C:/temp/Output.txt";
+			string origin = "C:/temp/FixedLength.txt";
 			StreamReader textReader = new StreamReader(origin);
 			string filepath = "C:/temp/test.dat";
-			
 			Stream writeStream = File.Open(filepath, FileMode.Create);
 			BinaryWriter binaryWriter = new BinaryWriter(writeStream, Encoding.ASCII);
-			binaryWriter.Write(textReader.ReadToEnd());
+
+			//Converting from string to bytes for text sanitation to avoid weird ascii translations
+			byte[] byteToString = Encoding.ASCII.GetBytes(textReader.ReadToEnd().Replace("\r\n", string.Empty));
+			binaryWriter.Write(byteToString);
 			
 			//Closing the writing streams
 			writeStream.Close();
 			textReader.Close();
 			binaryWriter.Close();
-
+			//--------------------------------------------------------
 			showLine();
 			Console.WriteLine("Successfull Write to test.dat");
 			//2 streams for binary reader and final stream for text writer
 			Stream readStream = File.Open(filepath,FileMode.Open);
 			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
 			StreamWriter streamWriter = new StreamWriter("C:/temp/convert.txt");
+			long readerLength = binReader.BaseStream.Length;
+			int blockLength = 512;
 			//writing to the file directly from reader
-			while(binReader.PeekChar() != -1)
+			
+			for(int i =0; i < (readerLength / blockLength); i++)
             {
-				streamWriter.Write(binReader.ReadString());
-			}
-
-			Console.WriteLine("Wrote from test.dat to convert.txt");
+				byteToString = binReader.ReadBytes(blockLength);
+				string temp = Encoding.ASCII.GetString(byteToString);
+				streamWriter.WriteLine(temp);
+            }
+			Console.WriteLine("Wrote from test.dat to convert.txt sucessfully");
 			//closing the streams 
 			streamWriter.Close();
 			binReader.Close();
