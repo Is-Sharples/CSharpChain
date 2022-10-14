@@ -284,6 +284,15 @@ namespace CSharpChainNetwork
         {
 			var engine = new FileHelperEngine<Block>();
 			Block[] output = engine.ReadFile("C:/temp/convert.txt");
+			List<Block> tempChain = new List<Block>();
+			tempChain = output.ToList();		
+
+			Console.WriteLine("Overwrite chain from memory? Type Yes/Y for yes.");
+			string temp = Console.ReadLine();
+			if(temp == "yes" || temp == "y")
+            {
+				blockchainServices.Blockchain.Chain = tempChain;
+			}
 
 			foreach(Block block in output)
             {
