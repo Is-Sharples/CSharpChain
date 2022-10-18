@@ -259,6 +259,7 @@ namespace CSharpChainNetwork
 
 				}
 			}
+			//Test Commit
 			CommandBlockchainMine("3002");
 			WriteFromFixedLengthToBinary();
 
