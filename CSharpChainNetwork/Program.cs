@@ -52,6 +52,7 @@ namespace CSharpChainNetwork
 					do
 				{
 					ShowCommandLine();
+					InternalOverWriteFromStorage();
 
 					commandLine = Console.ReadLine().ToLower();
 					commandLine += " ";
@@ -240,7 +241,7 @@ namespace CSharpChainNetwork
 		static void GenerateBlocks()
         {
 			Random rnd = new Random();
-			for(int i = 0; i < 10; i++)
+			for(int i = 0; i < 1000; i++)
             {
 				int amount = rnd.Next(1, 1000);
 				int baseIP = 3000;
@@ -252,15 +253,16 @@ namespace CSharpChainNetwork
                 }
 				CommandTransactionsAdd((baseIP+sender).ToString(), (baseIP+receiver).ToString(), amount.ToString(), i.ToString());
 
-				if((i % 2) == 0)
+				if((i % 18) == 0)
                 {
 					CommandBlockchainMine("3002");
 
 				}
 			}
 			CommandBlockchainMine("3002");
-			
-        }
+			WriteFromFixedLengthToBinary();
+
+		}
 
 		static void ListAll()
         {
@@ -269,7 +271,7 @@ namespace CSharpChainNetwork
 				CommandBlock(i);
             }
         }
-		static void WriteToFixedLengthRecord()
+		static void InternalWriteToFixedLengthRecord()
         {
 			List<Block> list = blockchainServices.Blockchain.Chain;
 			
@@ -279,6 +281,15 @@ namespace CSharpChainNetwork
 			Console.WriteLine("Written to FixedLength.txt");
 			
         }
+
+		static void InternalOverWriteFromStorage ()
+        {
+			var engine = new FileHelperEngine<Block>();
+			Block[] output = engine.ReadFile("C:/temp/convert.txt");
+			List<Block> tempChain;
+			tempChain = output.ToList();
+			blockchainServices.Blockchain.Chain = tempChain;
+		}
 
 		static void ReadFromConvertedBinary()
         {
@@ -308,10 +319,33 @@ namespace CSharpChainNetwork
 
 		}
 
+		static void InternalReadFromBinaryToConvert(string filepath)
+        {
+			byte[] byteToString;
+			Stream readStream = File.Open(filepath, FileMode.Open);
+			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
+			StreamWriter streamWriter = new StreamWriter("C:/temp/convert.txt");
+			long readerLength = binReader.BaseStream.Length;
+			int blockLength = 512;
+			//writing to the file directly from reader
+
+			for (int i = 0; i < (readerLength / blockLength); i++)
+			{
+				byteToString = binReader.ReadBytes(blockLength);
+				string temp = Encoding.ASCII.GetString(byteToString);
+				streamWriter.WriteLine(temp);
+			}
+			Console.WriteLine("Wrote from test.dat to convert.txt sucessfully");
+			//closing the streams 
+			streamWriter.Close();
+			binReader.Close();
+			readStream.Close();
+		}
+
 		static void WriteFromFixedLengthToBinary()
         {
 			//Write from Blockchain to Text
-			WriteToFixedLengthRecord();
+			InternalWriteToFixedLengthRecord();
 
 			string origin = "C:/temp/FixedLength.txt";
 			StreamReader textReader = new StreamReader(origin);
@@ -331,24 +365,7 @@ namespace CSharpChainNetwork
 			showLine();
 			Console.WriteLine("Successfull Write to test.dat");
 			//2 streams for binary reader and final stream for text writer
-			Stream readStream = File.Open(filepath,FileMode.Open);
-			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
-			StreamWriter streamWriter = new StreamWriter("C:/temp/convert.txt");
-			long readerLength = binReader.BaseStream.Length;
-			int blockLength = 512;
-			//writing to the file directly from reader
-			
-			for(int i =0; i < (readerLength / blockLength); i++)
-            {
-				byteToString = binReader.ReadBytes(blockLength);
-				string temp = Encoding.ASCII.GetString(byteToString);
-				streamWriter.WriteLine(temp);
-            }
-			Console.WriteLine("Wrote from test.dat to convert.txt sucessfully");
-			//closing the streams 
-			streamWriter.Close();
-			binReader.Close();
-			readStream.Close();
+			InternalReadFromBinaryToConvert(filepath);
         }
 		static void CommandBlockchainMine(string RewardAddress)
 		{
