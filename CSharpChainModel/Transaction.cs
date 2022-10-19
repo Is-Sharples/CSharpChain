@@ -39,7 +39,7 @@ namespace CSharpChainModel
 				$"Description: {this.Description} ";
 		}
 
-		public List<Transaction> parseTransaction(string text, string key)
+		public List<Transaction> SearchForTransactions(string text, string key)
         {
 			string recieved = "";
 			string sent = "";
@@ -47,7 +47,15 @@ namespace CSharpChainModel
 			string desc = "";
 			
 			List<Transaction> list = new List<Transaction>();
-			
+			/*
+			 * Using arbitrary delimiters the mathematical symbols are used 
+			 * to distinguish the different strings as data types:
+			 * up till - is the receiver of the transaction
+			 * from - to + is the sender 
+			 * from + to * is the description 
+			 * from * to % is the amount
+			 * the % symbol is the end of the transaction
+			*/
 			while (text.Contains(key))
 			{
                 if (text.Substring(0,text.IndexOf("+")).Contains(key))

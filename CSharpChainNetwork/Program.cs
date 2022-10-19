@@ -306,41 +306,34 @@ namespace CSharpChainNetwork
 		
 		static Block [] InternalSeekTransactionsFromFile()
         {
-			string tempFile = "C:/temp/temp.txt";
-			byte[] blockData;
 			Block[] blocks = new Block[blockchainServices.Blockchain.Chain.Count];
 			List<Transaction> list = new List<Transaction>();
 			Transaction utilities = new Transaction();
 			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
-			StreamWriter temp = new StreamWriter(tempFile);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
 			int blockSize = 512;
 
+			//For Every block in the chain, read from binary file, block by block 
 			for(int i = 0; i < blockchainServices.Blockchain.Chain.Count; i++)
             {
+				//initialise new block to store transactions
 				blocks[i] = new Block(new List<Transaction>());
+
 				if (i * blockSize < binReader.BaseStream.Length)
 				{
+					//Go to Byte: 512 * block Num 
 					stream.Seek(i * blockSize, SeekOrigin.Begin);
-					blockData = binReader.ReadBytes(blockSize);
-					string testing = Encoding.ASCII.GetString(blockData);
-					testing = testing.Substring(85,353);
-					
-					foreach (Transaction trans in utilities.parseTransaction(testing, "3005")) 
+					string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
+					blockData = blockData.Substring(85,353);
+					//parse from transactions characters to transactional data and store in list
+					foreach (Transaction trans in utilities.SearchForTransactions(blockData, "3005")) 
 					{
 						blocks[i].Transactions.Add(trans);
 					}
-
-					temp.WriteLine(Encoding.ASCII.GetString(blockData));
 				}
 			}
 			stream.Close();
-			temp.Close();
-
-            if (File.Exists(tempFile))
-            {
-				File.Delete(tempFile);
-            }
+			//Display that information
 			for(int i = 0; i < blocks.Length;i++)
             {
 				showLine();
