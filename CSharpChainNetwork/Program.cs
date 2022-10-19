@@ -140,6 +140,10 @@ namespace CSharpChainNetwork
 						case "r":
 							ReadFromConvertedBinary();
 							break;
+						case "test":
+						case "t":
+							SeekBlockFromFile();
+							break; 
 						default:
 							Console.WriteLine("Ups! I don't understand...");
 							Console.WriteLine("");
@@ -259,19 +263,45 @@ namespace CSharpChainNetwork
 
 				}
 			}
-			//Test Commit
+			
 			CommandBlockchainMine("3002");
 			WriteFromFixedLengthToBinary();
 
 		}
 
-		static void ListAll()
+
+		static void SeekBlockFromFile()
         {
-			for(int i = 0; i < blockchainServices.BlockchainLength(); i++)
+			int [] desiredBlocks = { 32, 31, 29, 0 };
+			string filePath = "C:/temp/test.dat";
+			byte[] blockData;
+			Stream stream = File.Open(filePath, FileMode.Open);
+			StreamWriter temp = new StreamWriter("C:/temp/temp.txt");
+			BinaryReader binReader = new BinaryReader(stream,Encoding.ASCII);
+			long fileLength = binReader.BaseStream.Length;
+			int blockSize = 512;
+			
+						
+			foreach(int block in desiredBlocks) {
+				
+				if (block* blockSize < fileLength)
+                {
+					stream.Seek(block * blockSize, SeekOrigin.Begin);
+					blockData = binReader.ReadBytes(blockSize);
+					temp.WriteLine(Encoding.ASCII.GetString(blockData));
+					
+				}	
+			}
+			temp.Close();
+
+			var engine = new FileHelperEngine<Block>();
+			Block [] blocks = engine.ReadFile("C:/temp/temp.txt");
+			foreach(Block block1 in blocks)
             {
-				CommandBlock(i);
+				Console.WriteLine(block1.Hash);
             }
-        }
+		}
+		
 		static void InternalWriteToFixedLengthRecord()
         {
 			List<Block> list = blockchainServices.Blockchain.Chain;
