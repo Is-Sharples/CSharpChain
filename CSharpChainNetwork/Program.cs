@@ -270,37 +270,38 @@ namespace CSharpChainNetwork
 		}
 
 
-		static Block [] InternalSeekBlocksFromFile(int [] key)
+		static Block [] InternalSeekBlocksFromFile(int [] keys)
         {
-			int[] desiredBlocks = key;
+			int[] desiredBlocks = keys;
 			string tempFile = "C:/temp/temp.txt";
+			var engine = new FileHelperEngine<Block>();
 			byte[] blockData;
 			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
 			StreamWriter temp = new StreamWriter(tempFile);
 			BinaryReader binReader = new BinaryReader(stream,Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
 			int blockSize = 512;
-				foreach (int block in desiredBlocks)
+			foreach (int block in desiredBlocks)
+			{
+				if (block * blockSize < fileLength)
 				{
-
-					if (block * blockSize < fileLength)
-					{
 						stream.Seek(block * blockSize, SeekOrigin.Begin);
 						blockData = binReader.ReadBytes(blockSize);
 						temp.WriteLine(Encoding.ASCII.GetString(blockData));
-
-					}
 				}
+			}
 
 			stream.Close();
 			temp.Close();
-            if (File.Exists(tempFile))
-            {
+            
+			
+			Block [] result = engine.ReadFile("C:/temp/temp.txt");
+
+			if (File.Exists(tempFile))
+			{
 				File.Delete(tempFile);
 			}
-			
-			var engine = new FileHelperEngine<Block>();
-			return engine.ReadFile("C:/temp/temp.txt");
+			return result;
 			
 		}
 		
