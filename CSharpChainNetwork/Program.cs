@@ -142,7 +142,7 @@ namespace CSharpChainNetwork
 							break;
 						case "test":
 						case "t":
-							ShowAllTransactionsContaining(InternalSeekTransactionsFromFile());
+							InternalSeekTransactionsFromFile();
 							break; 
 						default:
 							Console.WriteLine("Ups! I don't understand...");
@@ -304,7 +304,7 @@ namespace CSharpChainNetwork
 			
 		}
 		
-		static List<Transaction> InternalSeekTransactionsFromFile()
+		static Block [] InternalSeekTransactionsFromFile()
         {
 			string tempFile = "C:/temp/temp.txt";
 			byte[] blockData;
@@ -326,7 +326,7 @@ namespace CSharpChainNetwork
 					string testing = Encoding.ASCII.GetString(blockData);
 					testing = testing.Substring(85,353);
 					
-					foreach (Transaction trans in utilities.parseTransaction(testing, "3002")) 
+					foreach (Transaction trans in utilities.parseTransaction(testing, "3005")) 
 					{
 						blocks[i].Transactions.Add(trans);
 					}
@@ -341,7 +341,6 @@ namespace CSharpChainNetwork
             {
 				File.Delete(tempFile);
             }
-			Console.WriteLine($"List Count: {list.Count}");
 			for(int i = 0; i < blocks.Length;i++)
             {
 				showLine();
@@ -352,16 +351,10 @@ namespace CSharpChainNetwork
 					Console.WriteLine(transaction.ToString());
                 }
             }
-			return list;
+			return blocks;
 		}
 
-		static void ShowAllTransactionsContaining(List<Transaction> list)
-        {
-			foreach(Transaction transaction in list)
-            {
-				Console.WriteLine(transaction.Description);
-            }
-        }
+		
 
 		static void InternalWriteToFixedLengthRecord()
         {

@@ -50,10 +50,8 @@ namespace CSharpChainModel
 			
 			while (text.Contains(key))
 			{
-				
                 if (text.Substring(0,text.IndexOf("+")).Contains(key))
-                {
-					
+                {	
 					recieved = text.Substring(0, text.IndexOf("-"));
 					sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+")-text.IndexOf("-")-1);
 					desc = text.Substring(text.IndexOf("+") + 1, text.IndexOf("*")-text.IndexOf("+")-1);
@@ -62,7 +60,6 @@ namespace CSharpChainModel
 				}
 				text = text.Substring(text.IndexOf("%") + 1);
 			}
-
 			return list;
         }
 
