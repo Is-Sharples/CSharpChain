@@ -52,7 +52,7 @@ namespace CSharpChainNetwork
 					do
 				{
 					ShowCommandLine();
-					InternalOverWriteFromStorage();
+					//InternalOverWriteFromStorage();
 
 					commandLine = Console.ReadLine().ToLower();
 					commandLine += " ";
@@ -142,7 +142,7 @@ namespace CSharpChainNetwork
 							break;
 						case "test":
 						case "t":
-							SeekBlockFromFile();
+							ShowAllTransactionsContaining(InternalSeekTransactionsFromFile());
 							break; 
 						default:
 							Console.WriteLine("Ups! I don't understand...");
@@ -245,7 +245,7 @@ namespace CSharpChainNetwork
 		static void GenerateBlocks()
         {
 			Random rnd = new Random();
-			for(int i = 0; i < 1000; i++)
+			for(int i = 0; i < 100; i++)
             {
 				int amount = rnd.Next(1, 1000);
 				int baseIP = 3000;
@@ -257,7 +257,7 @@ namespace CSharpChainNetwork
                 }
 				CommandTransactionsAdd((baseIP+sender).ToString(), (baseIP+receiver).ToString(), amount.ToString(), i.ToString());
 
-				if((i % 18) == 0)
+				if((i % 18) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
                 {
 					CommandBlockchainMine("3002");
 
@@ -270,38 +270,87 @@ namespace CSharpChainNetwork
 		}
 
 
-		static void SeekBlockFromFile()
+		static Block [] InternalSeekBlocksFromFile(int [] key)
         {
-			int [] desiredBlocks = { 32, 31, 29, 0 };
-			string filePath = "C:/temp/test.dat";
+			int[] desiredBlocks = key;
+			string tempFile = "C:/temp/temp.txt";
 			byte[] blockData;
-			Stream stream = File.Open(filePath, FileMode.Open);
-			StreamWriter temp = new StreamWriter("C:/temp/temp.txt");
+			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
+			StreamWriter temp = new StreamWriter(tempFile);
 			BinaryReader binReader = new BinaryReader(stream,Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
 			int blockSize = 512;
-			
-						
-			foreach(int block in desiredBlocks) {
-				
-				if (block* blockSize < fileLength)
-                {
-					stream.Seek(block * blockSize, SeekOrigin.Begin);
-					blockData = binReader.ReadBytes(blockSize);
-					temp.WriteLine(Encoding.ASCII.GetString(blockData));
-					
-				}	
-			}
-			temp.Close();
+				foreach (int block in desiredBlocks)
+				{
 
-			var engine = new FileHelperEngine<Block>();
-			Block [] blocks = engine.ReadFile("C:/temp/temp.txt");
-			foreach(Block block1 in blocks)
+					if (block * blockSize < fileLength)
+					{
+						stream.Seek(block * blockSize, SeekOrigin.Begin);
+						blockData = binReader.ReadBytes(blockSize);
+						temp.WriteLine(Encoding.ASCII.GetString(blockData));
+
+					}
+				}
+
+			stream.Close();
+			temp.Close();
+            if (File.Exists(tempFile))
             {
-				Console.WriteLine(block1.Hash);
-            }
+				File.Delete(tempFile);
+			}
+			
+			var engine = new FileHelperEngine<Block>();
+			return engine.ReadFile("C:/temp/temp.txt");
+			
 		}
 		
+		static List<Transaction> InternalSeekTransactionsFromFile()
+        {
+			string tempFile = "C:/temp/temp.txt";
+			byte[] blockData;
+			List<Transaction> list = new List<Transaction>();
+			Transaction utilities = new Transaction();
+			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
+			StreamWriter temp = new StreamWriter(tempFile);
+			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
+			int blockSize = 512;
+
+			for(int i = 0; i < blockchainServices.Blockchain.Chain.Count; i++)
+            {
+				if (i * blockSize < binReader.BaseStream.Length)
+				{
+					stream.Seek(i * blockSize, SeekOrigin.Begin);
+					blockData = binReader.ReadBytes(blockSize);
+					string testing = Encoding.ASCII.GetString(blockData);
+					testing = testing.Substring(85,353);
+					
+					foreach (Transaction trans in utilities.parseTransaction(testing)) 
+					{
+						list.Add(trans);
+					}
+
+					temp.WriteLine(Encoding.ASCII.GetString(blockData));
+				}
+			}
+			stream.Close();
+			temp.Close();
+
+            if (File.Exists(tempFile))
+            {
+				File.Delete(tempFile);
+            }
+			Console.WriteLine($"List Count: {list.Count}");
+			return list;
+		}
+
+		static void ShowAllTransactionsContaining(List<Transaction> list)
+        {
+			foreach(Transaction transaction in list)
+            {
+				Console.WriteLine(transaction.Description);
+            }
+        }
+
 		static void InternalWriteToFixedLengthRecord()
         {
 			List<Block> list = blockchainServices.Blockchain.Chain;

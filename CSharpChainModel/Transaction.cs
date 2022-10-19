@@ -26,6 +26,11 @@ namespace CSharpChainModel
 			this.Description = description;
 		}
 
+		public Transaction()
+        {
+
+        }
+
         public override String ToString()
         {
 			return $" Sender Address: {this.SenderAddress} \n " +
@@ -33,6 +38,47 @@ namespace CSharpChainModel
 				$"For the Amount: {this.Amount} \n " +
 				$"Description: {this.Description} ";
 		}
+
+		public List<Transaction> parseTransaction(string text)
+        {
+			string recieved = "";
+			string sent = "";
+			decimal amount = 0;
+			string desc = "";
+			int identifier = 1;
+			List<Transaction> list = new List<Transaction>();
+			
+			while (text.Contains("_"))
+			{
+				switch (identifier)
+				{
+					case 1:
+						recieved = text.Substring(0, text.IndexOf("_"));
+						text = text.Substring(text.IndexOf("_")+1);
+						identifier++;
+						break;
+					case 2:
+						sent = text.Substring(0, text.IndexOf("_"));
+						text = text.Substring(text.IndexOf("_")+1);
+						identifier++;
+						break;
+					case 3:
+						desc = text.Substring(0, text.IndexOf("_"));
+						text = text.Substring(text.IndexOf("_")+1);
+						identifier++;
+						break;
+					case 4:
+						amount = Decimal.Parse(text.Substring(0, text.IndexOf("_")));
+						text = text.Substring(text.IndexOf("_")+1);
+						identifier = 1;
+						list.Add(new Transaction(sent, recieved, amount, desc));
+
+						break;
+				}
+			}
+
+			return list;
+        }
 
     }
 }
