@@ -52,7 +52,7 @@ namespace CSharpChainNetwork
 					do
 				{
 					ShowCommandLine();
-					//InternalOverWriteFromStorage();
+					InternalOverWriteFromStorage();
 
 					commandLine = Console.ReadLine().ToLower();
 					commandLine += " ";
