@@ -20,31 +20,34 @@ namespace CSharpChainModel
 
 
             string result = from.Replace("Transactions:", "");
-            while (result.Contains("_"))
+            while (result.Contains("%"))
             {
                 switch (identifier)
                 {
                     case 1:
-                        recieved = result.Substring(0, result.IndexOf("_"));
+                        recieved = result.Substring(0, result.IndexOf("-"));
                         identifier++;
+                        result = result.Substring(result.IndexOf("-") + 1);
                         break;
                     case 2:
-                        sent = result.Substring(0, result.IndexOf("_"));
+                        sent = result.Substring(0, result.IndexOf("+"));
                         identifier++;
+                        result = result.Substring(result.IndexOf("+") + 1);
                         break;
                     case 3:
-                        desc = result.Substring(0, result.IndexOf("_"));
+                        desc = result.Substring(0, result.IndexOf("*"));
                         identifier++;
+                        result = result.Substring(result.IndexOf("*") + 1);
                         break;
                     case 4:
-                        amount = Decimal.Parse(result.Substring(0, result.IndexOf("_")));
+                        amount = Decimal.Parse(result.Substring(0, result.IndexOf("%")));
                         identifier = 1;
+                        result = result.Substring(result.IndexOf("%") + 1);
                         list.Add(new Transaction(sent, recieved, amount, desc));
 
                         break;
                 }
 
-                result = result.Substring(result.IndexOf("_")+1);
                 //Console.WriteLine(result);
             }
 
@@ -57,10 +60,10 @@ namespace CSharpChainModel
             string transactions = "Transactions:";
             foreach(Transaction item in list)
             {
-                transactions += item.ReceiverAddress + "_";
-                transactions += item.SenderAddress + "_";
-                transactions += item.Description + "_";
-                transactions += item.Amount + "_";
+                transactions += item.ReceiverAddress + "-";
+                transactions += item.SenderAddress + "+";
+                transactions += item.Description + "*";
+                transactions += item.Amount + "%";
             }
 
 

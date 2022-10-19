@@ -39,42 +39,28 @@ namespace CSharpChainModel
 				$"Description: {this.Description} ";
 		}
 
-		public List<Transaction> parseTransaction(string text)
+		public List<Transaction> parseTransaction(string text, string key)
         {
 			string recieved = "";
 			string sent = "";
 			decimal amount = 0;
 			string desc = "";
-			int identifier = 1;
+			
 			List<Transaction> list = new List<Transaction>();
 			
-			while (text.Contains("_"))
+			while (text.Contains(key))
 			{
-				switch (identifier)
-				{
-					case 1:
-						recieved = text.Substring(0, text.IndexOf("_"));
-						text = text.Substring(text.IndexOf("_")+1);
-						identifier++;
-						break;
-					case 2:
-						sent = text.Substring(0, text.IndexOf("_"));
-						text = text.Substring(text.IndexOf("_")+1);
-						identifier++;
-						break;
-					case 3:
-						desc = text.Substring(0, text.IndexOf("_"));
-						text = text.Substring(text.IndexOf("_")+1);
-						identifier++;
-						break;
-					case 4:
-						amount = Decimal.Parse(text.Substring(0, text.IndexOf("_")));
-						text = text.Substring(text.IndexOf("_")+1);
-						identifier = 1;
-						list.Add(new Transaction(sent, recieved, amount, desc));
-
-						break;
+				
+                if (text.Substring(0,text.IndexOf("+")).Contains(key))
+                {
+					
+					recieved = text.Substring(0, text.IndexOf("-"));
+					sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+")-text.IndexOf("-")-1);
+					desc = text.Substring(text.IndexOf("+") + 1, text.IndexOf("*")-text.IndexOf("+")-1);
+					amount = Decimal.Parse(text.Substring(text.IndexOf("*") + 1, text.IndexOf("%")-text.IndexOf("*")-1));
+					list.Add(new Transaction(sent, recieved, amount, desc));
 				}
+				text = text.Substring(text.IndexOf("%") + 1);
 			}
 
 			return list;

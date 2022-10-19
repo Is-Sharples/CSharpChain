@@ -38,6 +38,11 @@ namespace CSharpChainModel
 
         }
 
+		public Block(List<Transaction> transactions)
+        {
+			this.Transactions = transactions;
+        }
+
 		public override String ToString()
 		{
 			return $" TimeStamp: {this.TimeStamp} \n " +

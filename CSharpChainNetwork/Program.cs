@@ -308,6 +308,7 @@ namespace CSharpChainNetwork
         {
 			string tempFile = "C:/temp/temp.txt";
 			byte[] blockData;
+			Block[] blocks = new Block[blockchainServices.Blockchain.Chain.Count];
 			List<Transaction> list = new List<Transaction>();
 			Transaction utilities = new Transaction();
 			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
@@ -317,6 +318,7 @@ namespace CSharpChainNetwork
 
 			for(int i = 0; i < blockchainServices.Blockchain.Chain.Count; i++)
             {
+				blocks[i] = new Block(new List<Transaction>());
 				if (i * blockSize < binReader.BaseStream.Length)
 				{
 					stream.Seek(i * blockSize, SeekOrigin.Begin);
@@ -324,9 +326,9 @@ namespace CSharpChainNetwork
 					string testing = Encoding.ASCII.GetString(blockData);
 					testing = testing.Substring(85,353);
 					
-					foreach (Transaction trans in utilities.parseTransaction(testing)) 
+					foreach (Transaction trans in utilities.parseTransaction(testing, "3002")) 
 					{
-						list.Add(trans);
+						blocks[i].Transactions.Add(trans);
 					}
 
 					temp.WriteLine(Encoding.ASCII.GetString(blockData));
@@ -340,6 +342,16 @@ namespace CSharpChainNetwork
 				File.Delete(tempFile);
             }
 			Console.WriteLine($"List Count: {list.Count}");
+			for(int i = 0; i < blocks.Length;i++)
+            {
+				showLine();
+				Console.WriteLine("Block No:"+i);
+				foreach(Transaction transaction in blocks[i].Transactions)
+                {
+					showLine();
+					Console.WriteLine(transaction.ToString());
+                }
+            }
 			return list;
 		}
 
