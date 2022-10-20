@@ -140,9 +140,9 @@ namespace CSharpChainNetwork
 						case "r":
 							ReadFromConvertedBinary();
 							break;
-						case "test":
-						case "t":
-							InternalSeekTransactionsFromFile();
+						case "search":
+						case "s":
+							SearchTransactionsByNode(command[1]);
 							break; 
 						default:
 							Console.WriteLine("Ups! I don't understand...");
@@ -269,7 +269,7 @@ namespace CSharpChainNetwork
 
 		}
 
-
+		//Function is unused but useful for finding certain blocks from binary data 
 		static Block [] InternalSeekBlocksFromFile(int [] keys)
         {
 			int[] desiredBlocks = keys;
@@ -305,50 +305,68 @@ namespace CSharpChainNetwork
 			
 		}
 		
-		static Block [] InternalSeekTransactionsFromFile()
+		static Block [] InternalSeekTransactionsFromFile(string key)
         {
-			Block[] blocks = new Block[blockchainServices.Blockchain.Chain.Count];
-			List<Transaction> list = new List<Transaction>();
+			
+			List<Block> blocks = new List<Block>();
 			Transaction utilities = new Transaction();
 			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
 			int blockSize = 512;
+			long fileLength = binReader.BaseStream.Length;
 
 			//For Every block in the chain, read from binary file, block by block 
-			for(int i = 0; i < blockchainServices.Blockchain.Chain.Count; i++)
+			for(int i = 0; i < fileLength/blockSize; i++)
             {
 				//initialise new block to store transactions
-				blocks[i] = new Block(new List<Transaction>());
 
-				if (i * blockSize < binReader.BaseStream.Length)
+				if (i * blockSize < fileLength)
 				{
 					//Go to Byte: 512 * block Num 
 					stream.Seek(i * blockSize, SeekOrigin.Begin);
 					string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 					blockData = blockData.Substring(85,353);
 					//parse from transactions characters to transactional data and store in list
-					foreach (Transaction trans in utilities.SearchForTransactions(blockData, "3005")) 
-					{
-						blocks[i].Transactions.Add(trans);
-					}
+					List <Transaction> result = utilities.SearchForTransactions(blockData, key);
+					if(result.Count > 0)
+                    {
+						blocks.Add(new Block(new List<Transaction>()));
+						foreach (Transaction trans in result)
+						{
+							blocks[blocks.Count-1].Transactions.Add(trans);
+						}
+					}else
+                    {
+						//Console.WriteLine($"No Transactions Found for {key} in Block: {i}");
+                    }
 				}
 			}
 			stream.Close();
-			//Display that information
-			for(int i = 0; i < blocks.Length;i++)
-            {
-				showLine();
-				Console.WriteLine("Block No:"+i);
-				foreach(Transaction transaction in blocks[i].Transactions)
-                {
-					showLine();
-					Console.WriteLine(transaction.ToString());
-                }
-            }
-			return blocks;
+			
+			return blocks.ToArray();
 		}
 
-		
+		static void SearchTransactionsByNode(string key)
+        {
+			if(key == "-") {
+				Console.WriteLine("Invalid Token Inputted");
+			}else
+            {
+				Block[] result = InternalSeekTransactionsFromFile(key.Trim());
+				if (result.Length == 0)
+                {
+					Console.WriteLine("No Transactions Found");
+                }else
+                {
+                    foreach (Block block in result)
+                    {
+						Console.WriteLine(block.ToString());
+						showLine();
+                    }
+                }
+			}
+			
+        }
 
 		static void InternalWriteToFixedLengthRecord()
         {

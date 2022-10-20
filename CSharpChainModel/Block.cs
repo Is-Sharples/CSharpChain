@@ -48,7 +48,9 @@ namespace CSharpChainModel
 			return $" TimeStamp: {this.TimeStamp} \n " +
 				$"PreviousHash: {this.PreviousHash} \n " +
 				$"Hash: {this.Hash} \n " +
-				$"Nonce: {this.Nonce} ";
+				$"Nonce: {this.Nonce}\n " +
+				$"Transaction Count: {this.Transactions.Count}"
+				; 
 		}
 
 	}
