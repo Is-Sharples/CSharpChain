@@ -19,7 +19,7 @@ namespace CSharpChainNetwork
 		static string baseAddress;
 		public static BlockchainServices blockchainServices;
 		public static NodeServices nodeServices;
-
+		static int blockSize = 12288;
 		static bool useNetwork = true;
 
 		public static void ShowCommandLine()
@@ -52,7 +52,7 @@ namespace CSharpChainNetwork
 					do
 				{
 					ShowCommandLine();
-					InternalOverWriteFromStorage();
+					//InternalOverWriteFromStorage();
 
 					commandLine = Console.ReadLine().ToLower();
 					commandLine += " ";
@@ -244,20 +244,22 @@ namespace CSharpChainNetwork
 
 		static void GenerateBlocks()
         {
+			int transNo = 512;
+			int blockNo = 5;
 			Random rnd = new Random();
-			for(int i = 0; i < 100; i++)
+			for(int i = 0; i < transNo * blockNo; i++)
             {
 				int amount = rnd.Next(1, 1000);
 				int baseIP = 3000;
-				int sender = rnd.Next(0, 6);
-				int receiver = rnd.Next(0, 6);
+				int sender = rnd.Next(0, 2000);
+				int receiver = rnd.Next(0, 2000);
 				while(sender == receiver)
                 {
-					receiver = rnd.Next(0, 3);
+					receiver = rnd.Next(0, 1000);
                 }
 				CommandTransactionsAdd((baseIP+sender).ToString(), (baseIP+receiver).ToString(), amount.ToString(), i.ToString());
 
-				if((i % 18) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
+				if((i % 512) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
                 {
 					CommandBlockchainMine("3002");
 
@@ -280,7 +282,6 @@ namespace CSharpChainNetwork
 			StreamWriter temp = new StreamWriter(tempFile);
 			BinaryReader binReader = new BinaryReader(stream,Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
-			int blockSize = 512;
 			foreach (int block in desiredBlocks)
 			{
 				if (block * blockSize < fileLength)
@@ -312,9 +313,10 @@ namespace CSharpChainNetwork
 			Transaction utilities = new Transaction();
 			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
-			int blockSize = 512;
 			long fileLength = binReader.BaseStream.Length;
 
+
+			//Add check for filelength/Blocksize else throw erorr 
 			//For Every block in the chain, read from binary file, block by block 
 			for(int i = 0; i < fileLength/blockSize; i++)
             {
@@ -358,10 +360,13 @@ namespace CSharpChainNetwork
 					Console.WriteLine("No Transactions Found");
                 }else
                 {
-                    foreach (Block block in result)
+					List<UserTransaction> test = new List<UserTransaction>();
+                    for(int i = 0; i < result.Length; i++)
                     {
-						Console.WriteLine(block.ToString());
-						showLine();
+						foreach(Transaction trans in result[i].Transactions)
+                        {
+							test.Add(trans.ToUserTransaction(i,trans));
+                        }
                     }
                 }
 			}
@@ -423,7 +428,7 @@ namespace CSharpChainNetwork
 			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
 			StreamWriter streamWriter = new StreamWriter("C:/temp/convert.txt");
 			long readerLength = binReader.BaseStream.Length;
-			int blockLength = 512;
+			int blockLength = blockSize;
 			//writing to the file directly from reader
 
 			for (int i = 0; i < (readerLength / blockLength); i++)

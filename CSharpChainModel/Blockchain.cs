@@ -20,7 +20,7 @@ namespace CSharpChainModel
 
 			this.Nodes = new List<string>();
 
-			this.Difficulty = 4;
+			this.Difficulty = 1;
 			this.PendingTransactions = new List<Transaction>();
 			this.MiningReward = 100;
 		}
