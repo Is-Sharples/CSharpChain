@@ -40,6 +40,8 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Transaction.cs" />
     <Compile Include="TransactionsConvertor.cs" />
+    <Compile Include="User.cs" />
+    <Compile Include="UserTransaction.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
