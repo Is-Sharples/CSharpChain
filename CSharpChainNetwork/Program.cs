@@ -2,7 +2,7 @@
 using CSharpChainServer;
 using Microsoft.Owin.Hosting;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using System.Diagnostics;
 using System;
 using System.IO;
 using System.Collections.Generic;
@@ -49,11 +49,16 @@ namespace CSharpChainNetwork
 				nodeServices = new NodeServices(blockchainServices.Blockchain);
 
 				string commandLine;
-					do
+
+				ShowCommandLine();
+				
+				//InternalOverWriteFromStorage();
+				
+				
+				do
 				{
 					ShowCommandLine();
-					//InternalOverWriteFromStorage();
-
+		
 					commandLine = Console.ReadLine().ToLower();
 					commandLine += " ";
 					var command = commandLine.Split(' ');
@@ -130,8 +135,16 @@ namespace CSharpChainNetwork
 							CommandBlockchainUpdate();
 							break;
 						case "gen": 
-							GenerateBlocks(); 
+							if(command[1].Length > 0)
+                            {
+								GenerateBlocks(int.Parse(command[1]));
+								
+							}else
+                            {
+								ShowIncorrectCommand();
+							}
 							break;
+
 						case "write":
 						case "w":
 							WriteFromFixedLengthToBinary();
@@ -139,20 +152,30 @@ namespace CSharpChainNetwork
 						case "read":
 						case "r":
 							ReadFromConvertedBinary();
+							
 							break;
 						case "search":
 						case "s":
 							SearchTransactionsByNode(command[1]);
-							break; 
+							break;
+						case "t":
+							InternalGetLastBlock();
+							
+							break;
 						default:
-							Console.WriteLine("Ups! I don't understand...");
-							Console.WriteLine("");
+							ShowIncorrectCommand();
 							break;
 					}
 				} while (commandLine != "q");
 			}
 		}
 		#region Commands 
+
+		static void ShowIncorrectCommand()
+        {
+			Console.WriteLine("Ups! I don't understand...");
+			Console.WriteLine("");
+		}
 
 		static void CommandListNodes(List<string> Nodes)
 		{
@@ -242,33 +265,65 @@ namespace CSharpChainNetwork
 			Console.WriteLine("");
 		}
 
-		static void GenerateBlocks()
+		static double InternalIndicateWeighting(int wallet)
+        {
+			double weight = 0;
+            if (((wallet >= 0) && (wallet < 250))|| (wallet >= 1750 && wallet < 2000))
+            {
+				weight = 0.1;
+            }else if ((wallet >= 250 && wallet < 500)||(wallet >= 1500 && wallet < 1750)){
+				weight = 0.3;
+			}else if ((wallet >= 500 && wallet < 750)|| (wallet >= 1250)&& wallet < 1500)
+            {
+				weight = 0.5;
+            }else if ((wallet >= 750 && wallet < 1000)||(wallet > 1000 && wallet < 1250))
+            {
+				weight = 0.8;
+            }else if (wallet == 1000)
+            {
+				weight = 0.9;
+            }
+
+			return weight;
+        }
+
+		static void GenerateBlocks(int blocks)
         {
 			int transNo = 512;
-			int blockNo = 5;
+			int blockNo = blocks;
 			Random rnd = new Random();
+			//Creating Transactions
 			for(int i = 0; i < transNo * blockNo; i++)
             {
+				
 				int amount = rnd.Next(1, 1000);
 				int baseIP = 3000;
 				int sender = rnd.Next(0, 2000);
 				int receiver = rnd.Next(0, 2000);
-				while(sender == receiver)
+
+                if (rnd.Next(10)*InternalIndicateWeighting(sender) < 4.5 )
                 {
-					receiver = rnd.Next(0, 1000);
+					sender = rnd.Next(0, 2000);
                 }
-				CommandTransactionsAdd((baseIP+sender).ToString(), (baseIP+receiver).ToString(), amount.ToString(), i.ToString());
 
-				if((i % 512) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
+				if(rnd.Next(10)*InternalIndicateWeighting(receiver) < 4.5)
                 {
-					CommandBlockchainMine("3002");
+					receiver = rnd.Next(0, 2000);
+                }                        
+					while (sender == receiver)
+					{
+						receiver = rnd.Next(0, 200);
+					}
+					CommandTransactionsAdd((baseIP + sender).ToString(), (baseIP + receiver).ToString(), amount.ToString(), i.ToString());
 
-				}
-			}
-			
+					if ((i % 512) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
+					{
+						CommandBlockchainMine("3002");
+
+					}				
+			}			
 			CommandBlockchainMine("3002");
 			WriteFromFixedLengthToBinary();
-
 		}
 
 		//Function is unused but useful for finding certain blocks from binary data 
@@ -306,71 +361,137 @@ namespace CSharpChainNetwork
 			
 		}
 		
-		static Block [] InternalSeekTransactionsFromFile(string key)
+		static List<UserTransaction> InternalSeekTransactionsFromFile(string key)
         {
+			List<UserTransaction> userTransactions = new List<UserTransaction>();
 			
-			List<Block> blocks = new List<Block>();
 			Transaction utilities = new Transaction();
 			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
 
-
-			//Add check for filelength/Blocksize else throw erorr 
+			Console.WriteLine($"Started Searching for {key}");
+			showLine();
 			//For Every block in the chain, read from binary file, block by block 
-			for(int i = 0; i < fileLength/blockSize; i++)
+			if(fileLength % blockSize == 0)
             {
-				//initialise new block to store transactions
-
-				if (i * blockSize < fileLength)
+				for (int i = 0; i < fileLength / blockSize; i++)
 				{
-					//Go to Byte: 512 * block Num 
-					stream.Seek(i * blockSize, SeekOrigin.Begin);
-					string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
-					blockData = blockData.Substring(85,353);
-					//parse from transactions characters to transactional data and store in list
-					List <Transaction> result = utilities.SearchForTransactions(blockData, key);
-					if(result.Count > 0)
-                    {
-						blocks.Add(new Block(new List<Transaction>()));
-						foreach (Transaction trans in result)
+					if (i == (fileLength / blockSize) * (0.25))
+					{
+						Console.WriteLine("25% is done");
+					}
+					else if (i == (fileLength / blockSize) * (0.5))
+					{
+						Console.WriteLine("Half way there, 50% is done");
+					}
+					else if (i == (fileLength / blockSize) * (0.75))
+					{
+						Console.WriteLine("Nearly There,75% is done");
+					}
+					//initialise new block to store transactions
+
+
+					if (i * blockSize < fileLength)
+					{
+						//Go to Byte: 512 * block Num 
+						stream.Seek(i * blockSize, SeekOrigin.Begin);
+						string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
+						blockData = blockData.Substring(85, 12129);
+						//parse from transactions characters to transactional data and store in list
+						List<Transaction> result = utilities.SearchForTransactions(blockData, key);
+
+						if (result.Count > 0)
 						{
-							blocks[blocks.Count-1].Transactions.Add(trans);
+							int count = 0;
+							foreach (Transaction trans in result)
+							{
+								count++;
+								userTransactions.Add(trans.ToUserTransaction(count));
+							}
 						}
-					}else
-                    {
-						//Console.WriteLine($"No Transactions Found for {key} in Block: {i}");
-                    }
+						else
+						{
+							//Console.WriteLine($"No Transactions Found for {key} in Block: {i}");
+						}
+					}
 				}
-			}
-			stream.Close();
+			}else
+            {
+				Console.WriteLine("ERROR: Reading File!!");
+            }
 			
-			return blocks.ToArray();
+			stream.Close();
+			return userTransactions;
+		}
+
+		static void InternalGetAllUsers()
+        {
+			Transaction utilities = new Transaction();
+			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
+			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
+			long fileLength = binReader.BaseStream.Length;
+			List<string> users = new List<string>();
+
+			Console.WriteLine("Uploading Users");
+			for (int i = 0; i < fileLength / blockSize; i++)
+            {
+				if (i == (fileLength / blockSize)* (0.25))
+				{
+					Console.WriteLine("25% is done");
+				}
+				else if (i == (fileLength / blockSize) * (0.5))
+				{
+					Console.WriteLine("Half way there, 50% is done");
+				}else if (i == (fileLength / blockSize) * (0.75))
+				{
+					Console.WriteLine("Nearly There,75% is done");
+				}
+
+				stream.Seek(i * blockSize, SeekOrigin.Begin);
+				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
+				blockData = blockData.Substring(85, 12129);
+				List<string> result = utilities.GetUsersFromText(blockData);
+				foreach(string user in result)
+                {
+                    if (!users.Contains(user))
+                    {
+						users.Add(user);
+                    }
+                }
+			}
+			users.Sort();
+			blockchainServices.Blockchain.Users = users;
+			stream.Close();
+			binReader.Close();
 		}
 
 		static void SearchTransactionsByNode(string key)
         {
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
 			if(key == "-") {
 				Console.WriteLine("Invalid Token Inputted");
 			}else
             {
-				Block[] result = InternalSeekTransactionsFromFile(key.Trim());
-				if (result.Length == 0)
+				List<UserTransaction> result = InternalSeekTransactionsFromFile(key.Trim());
+				showLine();
+				if (result.Count == 0)
                 {
 					Console.WriteLine("No Transactions Found");
                 }else
                 {
-					List<UserTransaction> test = new List<UserTransaction>();
-                    for(int i = 0; i < result.Length; i++)
+					int count = 0;
+					foreach (UserTransaction uTrans in result)
                     {
-						foreach(Transaction trans in result[i].Transactions)
-                        {
-							test.Add(trans.ToUserTransaction(i,trans));
-                        }
+						count++;
                     }
+
+					Console.WriteLine($"Transaction for {key}: "+count);
+					Console.WriteLine($"Time Taken for Searching for {key}:" + timer.Elapsed.ToString());
                 }
 			}
-			
+			timer.Stop();
         }
 
 		static void InternalWriteToFixedLengthRecord()
@@ -379,18 +500,64 @@ namespace CSharpChainNetwork
 			
 			var engine = new FileHelperEngine<Block>();
 			
-			engine.WriteFile("C:/temp/FixedLength.txt", list);
+			engine.WriteFile($"C:/temp/FixedLength.txt", list);
 			Console.WriteLine("Written to FixedLength.txt");
 			
         }
 
-		static void InternalOverWriteFromStorage ()
+		static Block InternalGetLastBlock()
         {
+			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
+			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
+			string tempFile = "C:/temp/temp.txt";
+			StreamWriter temp = new StreamWriter(tempFile);
 			var engine = new FileHelperEngine<Block>();
-			Block[] output = engine.ReadFile("C:/temp/convert.txt");
-			List<Block> tempChain;
-			tempChain = output.ToList();
-			blockchainServices.Blockchain.Chain = tempChain;
+
+
+			stream.Seek(-blockSize, SeekOrigin.End);
+			string tempString = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
+			Console.WriteLine(tempString);
+			temp.WriteLine(tempString);
+			temp.Close();
+			stream.Close();
+			
+			Block[] tempGenesis = engine.ReadString(tempString);
+			
+			binReader.Close();
+
+            if (File.Exists(tempFile))
+            {
+				File.Delete(tempFile);
+            }
+
+
+			if(tempGenesis.Length > 0)
+            {
+				return tempGenesis[0];
+            }
+			return new Block();
+			
+		}
+
+		static async void InternalOverWriteFromStorage ()
+        {
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
+			Block[] output;
+			Console.WriteLine("Uploading Blockchain From Local Files, Please do not mine blocks until it is finished");
+			await Task.Run(() =>
+			{
+				var engine = new FileHelperEngine<Block>();
+				output = engine.ReadFile("C:/temp/convert.txt");
+				List<Block> tempChain;
+				tempChain = output.ToList();
+				blockchainServices.Blockchain.Chain = tempChain;
+				InternalGetAllUsers();
+				Console.WriteLine("Engine Has finished");
+			});
+			Console.WriteLine("Time Taken to execute code"+timer.Elapsed.ToString());
+			timer.Stop();
+			ShowCommandLine();
 		}
 
 		static void ReadFromConvertedBinary()
@@ -443,7 +610,7 @@ namespace CSharpChainNetwork
 			binReader.Close();
 			readStream.Close();
 		}
-
+		//Write to Temp file and write to master file asyncshrounsaly 
 		static void WriteFromFixedLengthToBinary()
         {
 			//Write from Blockchain to Text

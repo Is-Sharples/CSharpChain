@@ -56,9 +56,11 @@ namespace CSharpChainModel
 			 * from * to % is the amount
 			 * the % symbol is the end of the transaction
 			*/
+			
 			while (text.Contains(key))
 			{
-                if (text.Substring(0,text.IndexOf("+")).Contains(key))
+				
+				if (text.Substring(0,text.IndexOf("+")).Contains(key))
                 {	
 					recieved = text.Substring(0, text.IndexOf("-"));
 					sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+")-text.IndexOf("-")-1);
@@ -71,12 +73,40 @@ namespace CSharpChainModel
 			return list;
         }
 
-		public UserTransaction ToUserTransaction(int blockNum, Transaction transaction)
+		public UserTransaction ToUserTransaction(int blockNum)
         {
 			List<UserTransaction> result = new List<UserTransaction>();
 			
 
-			return new UserTransaction(blockNum, transaction.SenderAddress, transaction.ReceiverAddress, transaction.Amount, transaction.Description);
+			return new UserTransaction(blockNum, this.SenderAddress, this.ReceiverAddress, this.Amount, this.Description);
         }
+
+		public List<string> GetUsersFromText(string text)
+        {
+			string recieved = "";
+			string sent = "";
+			List<string> users = new List<string>();
+
+            while (text.Contains("+")){
+
+                recieved = text.Substring(0, text.IndexOf("-"));
+                sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);			
+				if(users.Contains(sent))
+                {
+                }else if (users.Contains(recieved))
+                {
+                }else
+                {
+					users.Add(recieved);
+					users.Add(sent);
+				}			
+				
+				text = text.Substring(text.IndexOf("%") + 1);
+            }
+			return users;
+		}
+
+
+     }
     }
-}
+
