@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 using System.IO;
+using System.Text;
+using FileHelpers;
 
 namespace CSharpChainServer
 {
@@ -30,8 +32,12 @@ namespace CSharpChainServer
 			// calculate hash of genesis block
 			Block genesisBlock = blockchain.Chain[0];
 			BlockServices blockServices = new BlockServices(genesisBlock);
-			string genesisBlockHash = blockServices.BlockHash();
-			blockchain.Chain[0].Hash = genesisBlockHash;
+			if (blockchain.Genesis.PreviousHash.Trim() == "0")
+            {
+				string genesisBlockHash = blockServices.BlockHash();
+				blockchain.Chain[0].Hash = genesisBlockHash;
+			}
+			
 		}
 
 		public void UpdateWithLongestBlockchain ()
@@ -41,6 +47,10 @@ namespace CSharpChainServer
 
 		}
 
+		public void RefreshBlockchain()
+        {
+			this.blockchain = new Blockchain();
+        }
 
 		public Block LatestBlock()
 		{
@@ -64,24 +74,6 @@ namespace CSharpChainServer
 		{
 			return blockchain.Chain.Count();
 		}
-
-		public void TraverseChain()
-        {
-			if(blockchain.Chain.Count > 2)
-            {
-				string json = JsonConvert.SerializeObject(blockchain.Chain, Formatting.Indented);
-				StreamWriter file = new StreamWriter("C:/temp/test.json");
-
-				file.WriteLine(json);
-				file.Close();
-			}
-			
-			
-			foreach(Block block in blockchain.Chain)
-            {
-				Console.WriteLine("Hash of Block:"+block.Hash);
-            }
-        }
 
 		public void AddTransaction(Transaction transaction)
 		{
@@ -112,23 +104,37 @@ namespace CSharpChainServer
 
 		public bool isBlockchainValid()
 		{
-			for (long i = 1; i < blockchain.Chain.LongCount(); i++)
-			{
-				Block currentBlock = blockchain.Chain[(int)i];
-				Block previousBlock = blockchain.Chain[(int)i - 1];
-
-				BlockServices blockServices = new BlockServices(currentBlock);
-				if (currentBlock.Hash != blockServices.BlockHash())
-				{
-					return false;
-				}
-
-				if (currentBlock.PreviousHash != previousBlock.Hash)
-				{
-					return false;
-				}
-				blockServices = null;
+			var engine = new FileHelperEngine<Block>();
+			int blockSize = 12288;
+			Stream readStream = File.Open("C:/temp/Master.dat", FileMode.Open);
+			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
+			Block previous = new Block();
+			Console.WriteLine("Validating...");
+			
+			for (long i = 0; i < binReader.BaseStream.Length/blockSize; i++)
+			{	
+				readStream.Seek(i * blockSize, SeekOrigin.Begin);
+				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
+				Block block = engine.ReadString(blockData)[0];
+				if(block.PreviousHash.Trim() == "0")
+                {
+					//Console.WriteLine("Genesis Block");
+                }else
+                {
+                    if (block.PreviousHash != previous.Hash)
+                    {
+						Console.WriteLine(i);
+						Console.WriteLine("Current Blocks Previous Hash:"+ block.PreviousHash);
+						Console.WriteLine("Actual previous Hash"+previous.Hash);
+						return false;
+                    }
+                }
+				previous = block;
+				
 			}
+			readStream.Close();
+			binReader.Close();
+
 			return true;
 		}
 
