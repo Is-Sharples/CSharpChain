@@ -106,7 +106,24 @@ namespace CSharpChainModel
 			return users;
 		}
 
+		public List<string> PartialGetUserCountFromText(string text)
+		{
+			string recieved = "";
+			string sent = "";
+			List<string> users = new List<string>();
 
-     }
+			while (text.Contains("+"))
+			{
+
+				recieved = text.Substring(0, text.IndexOf("-"));
+				sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);
+				users.Add(recieved);
+				users.Add(sent);
+
+				text = text.Substring(text.IndexOf("%") + 1);
+			}
+			return users;
+		}
+	}
     }
 

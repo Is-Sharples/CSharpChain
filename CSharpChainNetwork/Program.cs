@@ -15,12 +15,13 @@ namespace CSharpChainNetwork
 {
 	static class Program
 	{
-
+		static string master = "C:/temp/Master.dat";
 		static string baseAddress;
 		public static BlockchainServices blockchainServices;
 		public static NodeServices nodeServices;
 		static int blockSize = 12288;
 		static bool useNetwork = true;
+		static Transaction utilities = new Transaction();
 
 		public static void ShowCommandLine()
 		{
@@ -113,7 +114,6 @@ namespace CSharpChainNetwork
 
 						case "blockchain-length":
 						case "bl":
-							//CommandBlockchainLength();
 							SimpleBlockchainLength();
 							break;
 
@@ -142,12 +142,6 @@ namespace CSharpChainNetwork
 								ShowIncorrectCommand();
 							}
 							break;
-							/*
-						case "write":
-						case "w":
-							WriteFromFixedLengthToBinary();
-							break;
-							*/
 						case "read":
 						case "r":
 							ReadFromConvertedBinary();
@@ -158,7 +152,7 @@ namespace CSharpChainNetwork
 							SearchTransactionsByNode(command[1]);
 							break;
 						case "t":
-							
+							InternalGetFrequencyDistribution();
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -201,7 +195,7 @@ namespace CSharpChainNetwork
 
 		static void SimpleBlockchainLength()
         {
-			Stream stream = File.Open("C:/temp/Master.dat", FileMode.Open);
+			Stream stream = File.Open(master, FileMode.Open);
 			BinaryReader binary = new BinaryReader(stream, Encoding.ASCII);
 
 			Console.WriteLine(binary.BaseStream.Length/blockSize);
@@ -218,7 +212,7 @@ namespace CSharpChainNetwork
 			string tempFile = "C:/temp/temp.txt";
 			var engine = new FileHelperEngine<Block>();
 			byte[] blockData;
-			Stream stream = File.Open("C:/temp/Master.dat", FileMode.Open);
+			Stream stream = File.Open(master, FileMode.Open);
 			StreamWriter temp = new StreamWriter(tempFile);
 			BinaryReader binReader = new BinaryReader(stream,Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
@@ -250,7 +244,7 @@ namespace CSharpChainNetwork
         {
 			List<UserTransaction> userTransactions = new List<UserTransaction>();
 			Transaction utilities = new Transaction();
-			Stream stream = File.Open("C:/temp/Master.dat", FileMode.Open);
+			Stream stream = File.Open(master, FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
 
@@ -309,15 +303,16 @@ namespace CSharpChainNetwork
 			return userTransactions;
 		}
 
-		static void InternalGetAllUsers()
+		static User[] InternalGetAllUsers()
         {
-			Transaction utilities = new Transaction();
-			Stream stream = File.Open("C:/temp/Master.dat", FileMode.Open);
+			
+			Stream stream = File.Open(master, FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
 			List<string> users = new List<string>();
+			
 
-			Console.WriteLine("Uploading Users");
+			Console.WriteLine("Reading Users From File");
 			for (int i = 0; i < fileLength / blockSize; i++)
             {
 				if (i == (fileLength / blockSize)* (0.25))
@@ -330,7 +325,10 @@ namespace CSharpChainNetwork
 				}else if (i == (fileLength / blockSize) * (0.75))
 				{
 					Console.WriteLine("Nearly There,75% is done");
-				}
+				}else if (i == (fileLength / blockSize) * (0.9))
+                {
+					Console.WriteLine("So Close, 90% is done");
+                }
 
 				stream.Seek(i * blockSize, SeekOrigin.Begin);
 				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
@@ -345,9 +343,15 @@ namespace CSharpChainNetwork
                 }
 			}
 			users.Sort();
-			blockchainServices.Blockchain.Users = users;
 			stream.Close();
 			binReader.Close();
+			List<User> tempUsers = new List<User>();
+			foreach(string user in users)
+            {
+				tempUsers.Add(new User(user));
+            }
+
+			return tempUsers.ToArray();
 		}
 
 		static void SearchTransactionsByNode(string key)
@@ -390,9 +394,15 @@ namespace CSharpChainNetwork
 				}
 			}		
 			var engine = new FileHelperEngine<Block>();
+            try{
+				engine.WriteFile($"C:/temp/{text}.txt", list);
+				Console.WriteLine($"Written to {text}.txt");
+			}
+			catch
+            {
+				Console.WriteLine("Engine Failure");
+            }
 			
-			engine.WriteFile($"C:/temp/{text}.txt", list);
-			Console.WriteLine($"Written to {text}.txt");
 			
         }
 
@@ -420,14 +430,86 @@ namespace CSharpChainNetwork
 			binReader.Close();
 			readStream.Close();
 		}
-		//Write to Temp file and write to master file asyncshrounsaly 
 
 		static void showLine()
         {
 			Console.WriteLine("-----------------");
 		}
 
+		static void InternalGetFrequencyDistribution()
+        {
+			User[] users = InternalGetAllUsers();
+			Stream readStream = File.Open(master, FileMode.Open);
+			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
+			long fileLength = binReader.BaseStream.Length;
+			StreamWriter writer = new StreamWriter("C:/temp/users.csv");
 
+			Console.WriteLine("Started Getting Frequency of transactions");
+			int total = 0;
+			for (int i = 0; i < fileLength / blockSize; i++)
+			{
+				readStream.Seek(i * blockSize, SeekOrigin.Begin);
+				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
+				blockData = blockData.Substring(85, 12129);
+				List<string> result = utilities.PartialGetUserCountFromText(blockData);
+                #region progressBar
+                if (i == (fileLength / blockSize) * (0.25))
+				{
+					Console.WriteLine("25% is done");
+				}
+				else if (i == (fileLength / blockSize) * (0.5))
+				{
+					Console.WriteLine("Half way there, 50% is done");
+				}
+				else if (i == (fileLength / blockSize) * (0.75))
+				{
+					Console.WriteLine("Nearly There,75% is done");
+				}
+				else if (i == (fileLength / blockSize) * (0.9))
+				{
+					Console.WriteLine("So Close, 90% is done");
+				}else if (i == (fileLength / blockSize) * (0.15))
+                {
+					Console.WriteLine("We've barely started, 15% is done");
+                }
+                #endregion 
+
+                foreach (User user in users)
+				{
+                    if (result.Contains(user.name))
+                    {
+						foreach(string tempResult in result)
+                        {
+							if(tempResult == user.name)
+                            {
+								user.transactionCount++;
+                            }
+                        }
+                    }
+				}
+			}
+
+            foreach (User user in users)
+            {
+				writer.WriteLine(user.name+ ","+ user.transactionCount);
+				
+				total += user.transactionCount;
+            }
+
+			writer.WriteLine("Total,"+total);
+
+			readStream.Close();
+			binReader.Close();
+			writer.Close();
+		}
+
+		static void InternalDisplayStringList(List<string> input)
+        {
+            foreach (string text in input)
+            {
+				Console.WriteLine(text);
+            }
+        }
 
 		#endregion
 		static void WriteFromFixedLengthToBinary(string savePath)
@@ -437,8 +519,7 @@ namespace CSharpChainNetwork
 
 			string origin = $"C:/temp/{savePath}.txt";
 			StreamReader textReader = new StreamReader(origin);
-			string filepath = "C:/temp/Master.dat";
-			Stream writeStream = File.Open(filepath, FileMode.Append);
+			Stream writeStream = File.Open(master, FileMode.Append);
 			BinaryWriter binaryWriter = new BinaryWriter(writeStream, Encoding.ASCII);
 			
 			//Converting from string to bytes for text sanitation to avoid weird ascii translations
@@ -451,9 +532,9 @@ namespace CSharpChainNetwork
 			binaryWriter.Close();
 			//--------------------------------------------------------
 			showLine();
-			Console.WriteLine("Successfull Write to Master.dat");
+			Console.WriteLine($"Successfull Write to {master}");
 			//2 streams for binary reader and final stream for text writer
-			InternalReadFromBinaryToConvert(filepath);
+			InternalReadFromBinaryToConvert(master);
 		}
 
 		static void ReadFromConvertedBinary()
@@ -486,6 +567,8 @@ namespace CSharpChainNetwork
 
 		static void GenerateBlocks(int blocks)
 		{
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
 			int transNo = 512;
 			int blockNo = blocks;
 			Random rnd = new Random();
@@ -512,17 +595,19 @@ namespace CSharpChainNetwork
 				}
 				CommandTransactionsAdd((baseIP + sender).ToString(), (baseIP + receiver).ToString(), amount.ToString(), i.ToString());
 
-				if ((i % 512) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
+				if ((i % transNo) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
 				{
-					CommandBlockchainMine("3002");
+					CommandBlockchainMine("System2");
 
 				}
 			}
-			CommandBlockchainMine("3002");
+			CommandBlockchainMine("System2");
 			WriteFromFixedLengthToBinary("temp");
-
+			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();
+			timer.Stop();
 		}
+
 
 		#region Blockchain Commands
 		static void CommandBlockchainMine(string RewardAddress)
