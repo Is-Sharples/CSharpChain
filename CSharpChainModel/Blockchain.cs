@@ -16,12 +16,12 @@ namespace CSharpChainModel
 		public List<Transaction> PendingTransactions;
 		public int MiningReward;
 		public List<string> Users;
-
+		public Block Genesis;
 		public Blockchain()
 		{
 			this.Chain = new List<Block>();
 			this.Chain.Add(InternalGetLastBlock());
-
+			this.Genesis = this.Chain[0];
 			this.Nodes = new List<string>();
 			this.Users = new List<string>();
 			this.Difficulty = 1;
@@ -37,27 +37,24 @@ namespace CSharpChainModel
 
 		Block InternalGetLastBlock()
 		{
-			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
+            if (!File.Exists("C:/temp/Master.dat"))
+            {
+				return CreateGenesisBlock();
+			}
+			Stream stream = File.Open("C:/temp/Master.dat", FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
-			string tempFile = "C:/temp/temp.txt";
-			StreamWriter temp = new StreamWriter(tempFile);
 			var engine = new FileHelperEngine<Block>();
 			int blockSize = 12288;
 
 			stream.Seek(-blockSize, SeekOrigin.End);
 			string tempString = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
-			temp.WriteLine(tempString);
-			temp.Close();
+			
 			stream.Close();
 
 			Block[] tempGenesis = engine.ReadString(tempString);
 
 			binReader.Close();
 
-			if (File.Exists(tempFile))
-			{
-				File.Delete(tempFile);
-			}
 
 
 			if (tempGenesis.Length > 0)

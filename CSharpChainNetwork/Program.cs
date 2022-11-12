@@ -52,9 +52,6 @@ namespace CSharpChainNetwork
 
 				ShowCommandLine();
 				
-				//InternalOverWriteFromStorage();
-				
-				
 				do
 				{
 					ShowCommandLine();
@@ -116,7 +113,8 @@ namespace CSharpChainNetwork
 
 						case "blockchain-length":
 						case "bl":
-							CommandBlockchainLength();
+							//CommandBlockchainLength();
+							SimpleBlockchainLength();
 							break;
 
 						case "block":
@@ -144,11 +142,12 @@ namespace CSharpChainNetwork
 								ShowIncorrectCommand();
 							}
 							break;
-
+							/*
 						case "write":
 						case "w":
 							WriteFromFixedLengthToBinary();
 							break;
+							*/
 						case "read":
 						case "r":
 							ReadFromConvertedBinary();
@@ -169,7 +168,7 @@ namespace CSharpChainNetwork
 				} while (commandLine != "q");
 			}
 		}
-		#region Commands 
+		#region InternalFunctions 
 
 		static void ShowIncorrectCommand()
         {
@@ -177,93 +176,7 @@ namespace CSharpChainNetwork
 			Console.WriteLine("");
 		}
 
-		static void CommandListNodes(List<string> Nodes)
-		{
-			foreach (string node in Nodes)
-			{
-				Console.WriteLine($"  Node: {node}");
-			}
-			Console.WriteLine("");
-		}
-
-		static void CommandListPendingTransactions(List<Transaction> PendingTransactions)
-		{
-			foreach (Transaction transaction in PendingTransactions)
-			{
-				Console.WriteLine($"  Transaction: {transaction.Amount} from {transaction.SenderAddress} to {transaction.ReceiverAddress} with description {transaction.Description}");
-			}
-			Console.WriteLine("");
-		}
-
-		static void CommandNodeAdd(string NodeUrl)
-		{
-			if (!NodeUrl.EndsWith("/")) NodeUrl += "/";
-			nodeServices.AddNode(NodeUrl);
-			Console.WriteLine($"  Node {NodeUrl} added to list of blockchain peer nodes.");
-			if (useNetwork)
-			{
-				NetworkRegister(NodeUrl);
-				CommandBlockchainUpdate();
-			}
-			Console.WriteLine("");
-		}
-
-		static void CommandHelp()
-		{
-			Console.WriteLine("Commands:");
-			Console.WriteLine("h, help = list of commands.");
-			Console.WriteLine("q, quit = exit the program.");
-			Console.WriteLine("na, node-add [url] = connect current node to other node.");
-			Console.WriteLine("nr, node-remove [url] = disconnect current node from other node.");
-			Console.WriteLine("nl, nodes-list = list connected nodes.");
-			Console.WriteLine("ta, transaction-add [senderAddress] [receiverAddress] [Amount] [Description] = create new transaction.");
-			Console.WriteLine("np, transactions-pending = list of transactions not included in block.");
-			Console.WriteLine("bm, blockchain-mine [rewardAddress] = create block from pending transactions,");
-			Console.WriteLine("bv, blockchain-valid = Validates blockchain.");
-			Console.WriteLine("bl, blockchain-length = number of blocks in blockchain.");
-			Console.WriteLine("b, block [index] = list info about specified block.");
-			Console.WriteLine("bu, update, blockchain-update = update blockchain to the longest in network.");
-			Console.WriteLine("bal, balance-get [address] = get balance for specified address.");
-			Console.WriteLine("gen, for generating a transaction auto");
-			Console.WriteLine("w, write, For Writing the blockchain to FixedLength Records");
-			Console.WriteLine("r, read, For reading from binary file");
-			Console.WriteLine();
-			Console.WriteLine("Email me: dejan@mauer.si");
-			Console.WriteLine();
-
-		}
-
-		static void CommandBlockchainUpdate()
-		{
-			Console.WriteLine($"  Updating blockchain with the longest found on network.");
-			if (useNetwork)
-			{
-				NetworkBlockchainUpdate();
-			}
-			Console.WriteLine("");
-		}
-
-		static void CommandNodeRemove(string NodeUrl)
-		{
-			if (!NodeUrl.EndsWith("/")) NodeUrl += "/";
-			nodeServices.RemoveNode(NodeUrl);
-			Console.WriteLine($"  Node {NodeUrl} removed to list of blockchain peer nodes.");
-			Console.WriteLine("");
-		}
-
-		static void CommandTransactionsAdd(string SenderAddress, string ReceiverAddress, string Amount, string Description)
-		{
-			Transaction transaction = new Transaction(SenderAddress, ReceiverAddress, Decimal.Parse(Amount), Description);
-			blockchainServices.AddTransaction(transaction);
-			Console.WriteLine($"  {Amount} from {SenderAddress} to {ReceiverAddress} transaction added to list of pending transactions.");
-			Console.WriteLine("");
-
-			if (useNetwork)
-			{
-				NetworkTransactionAdd(transaction);
-			}
-			Console.WriteLine("");
-		}
+		
 
 		static double InternalIndicateWeighting(int wallet)
         {
@@ -287,53 +200,26 @@ namespace CSharpChainNetwork
 			return weight;
         }
 
-		static void GenerateBlocks(int blocks)
+		static void SimpleBlockchainLength()
         {
-			int transNo = 512;
-			int blockNo = blocks;
-			Random rnd = new Random();
-			//Creating Transactions
-			for(int i = 0; i < transNo * blockNo; i++)
-            {
-				
-				int amount = rnd.Next(1, 1000);
-				int baseIP = 3000;
-				int sender = rnd.Next(0, 2000);
-				int receiver = rnd.Next(0, 2000);
+			Stream stream = File.Open("C:/temp/Master.dat", FileMode.Open);
+			BinaryReader binary = new BinaryReader(stream, Encoding.ASCII);
 
-                if (rnd.Next(10)*InternalIndicateWeighting(sender) < 4.5 )
-                {
-					sender = rnd.Next(0, 2000);
-                }
+			Console.WriteLine(binary.BaseStream.Length/blockSize);
 
-				if(rnd.Next(10)*InternalIndicateWeighting(receiver) < 4.5)
-                {
-					receiver = rnd.Next(0, 2000);
-                }                        
-					while (sender == receiver)
-					{
-						receiver = rnd.Next(0, 200);
-					}
-					CommandTransactionsAdd((baseIP + sender).ToString(), (baseIP + receiver).ToString(), amount.ToString(), i.ToString());
+			stream.Close();
+			binary.Close();
+        }
 
-					if ((i % 512) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
-					{
-						CommandBlockchainMine("3002");
-
-					}				
-			}			
-			CommandBlockchainMine("3002");
-			WriteFromFixedLengthToBinary();
-		}
-
-		//Function is unused but useful for finding certain blocks from binary data 
-		static Block [] InternalSeekBlocksFromFile(int [] keys)
+        #region Internal Searching functions
+        //Function is unused but useful for finding certain blocks from binary data 
+        static Block [] InternalSeekBlocksFromFile(int [] keys)
         {
 			int[] desiredBlocks = keys;
 			string tempFile = "C:/temp/temp.txt";
 			var engine = new FileHelperEngine<Block>();
 			byte[] blockData;
-			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
+			Stream stream = File.Open("C:/temp/Master.dat", FileMode.Open);
 			StreamWriter temp = new StreamWriter(tempFile);
 			BinaryReader binReader = new BinaryReader(stream,Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
@@ -364,9 +250,8 @@ namespace CSharpChainNetwork
 		static List<UserTransaction> InternalSeekTransactionsFromFile(string key)
         {
 			List<UserTransaction> userTransactions = new List<UserTransaction>();
-			
 			Transaction utilities = new Transaction();
-			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
+			Stream stream = File.Open("C:/temp/Master.dat", FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
 
@@ -428,7 +313,7 @@ namespace CSharpChainNetwork
 		static void InternalGetAllUsers()
         {
 			Transaction utilities = new Transaction();
-			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
+			Stream stream = File.Open("C:/temp/Master.dat", FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
 			List<string> users = new List<string>();
@@ -493,21 +378,28 @@ namespace CSharpChainNetwork
 			}
 			timer.Stop();
         }
-
-		static void InternalWriteToFixedLengthRecord()
+        #endregion
+        static void InternalWriteToFixedLengthRecord(string text)
         {
 			List<Block> list = blockchainServices.Blockchain.Chain;
-			
+
+            if (blockchainServices.Blockchain.Genesis.PreviousHash.Trim() != "0")
+            {
+				if (list[0].Hash == blockchainServices.Blockchain.Genesis.Hash)
+				{
+					list.RemoveAt(0);
+				}
+			}		
 			var engine = new FileHelperEngine<Block>();
 			
-			engine.WriteFile($"C:/temp/FixedLength.txt", list);
-			Console.WriteLine("Written to FixedLength.txt");
+			engine.WriteFile($"C:/temp/{text}.txt", list);
+			Console.WriteLine($"Written to {text}.txt");
 			
         }
 
 		static Block InternalGetLastBlock()
         {
-			Stream stream = File.Open("C:/temp/test.dat", FileMode.Open);
+			Stream stream = File.Open("C:/temp/Master.dat", FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
 			string tempFile = "C:/temp/temp.txt";
 			StreamWriter temp = new StreamWriter(tempFile);
@@ -560,37 +452,10 @@ namespace CSharpChainNetwork
 			ShowCommandLine();
 		}
 
-		static void ReadFromConvertedBinary()
-        {
-			var engine = new FileHelperEngine<Block>();
-			Block[] output = engine.ReadFile("C:/temp/convert.txt");
-			List<Block> tempChain;
-			tempChain = output.ToList();		
-
-			Console.WriteLine("Overwrite chain from memory? Type Yes/Y for yes.");
-			string temp = Console.ReadLine();
-			if(temp == "yes" || temp == "y")
-            {
-				blockchainServices.Blockchain.Chain = tempChain;
-			}
-
-			foreach(Block block in output)
-            {
-				Console.WriteLine(block.ToString());
-				foreach(Transaction trans in block.Transactions)
-                {
-					showLine();
-					Console.WriteLine(trans.ToString());
-                }
-				showLine();
-            }
-			Console.WriteLine("Read file from convert.txt");
-
-		}
-
 		static void InternalReadFromBinaryToConvert(string filepath)
         {
 			byte[] byteToString;
+			
 			Stream readStream = File.Open(filepath, FileMode.Open);
 			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
 			StreamWriter streamWriter = new StreamWriter("C:/temp/convert.txt");
@@ -604,38 +469,115 @@ namespace CSharpChainNetwork
 				string temp = Encoding.ASCII.GetString(byteToString);
 				streamWriter.WriteLine(temp);
 			}
-			Console.WriteLine("Wrote from test.dat to convert.txt sucessfully");
+			Console.WriteLine("Wrote from Master.dat to convert.txt sucessfully");
 			//closing the streams 
 			streamWriter.Close();
 			binReader.Close();
 			readStream.Close();
 		}
 		//Write to Temp file and write to master file asyncshrounsaly 
-		static void WriteFromFixedLengthToBinary()
+
+		static void showLine()
         {
+			Console.WriteLine("-----------------");
+		}
+
+		#endregion
+		static void WriteFromFixedLengthToBinary(string savePath)
+		{
 			//Write from Blockchain to Text
-			InternalWriteToFixedLengthRecord();
+			InternalWriteToFixedLengthRecord(savePath);
 
-			string origin = "C:/temp/FixedLength.txt";
+			string origin = $"C:/temp/{savePath}.txt";
 			StreamReader textReader = new StreamReader(origin);
-			string filepath = "C:/temp/test.dat";
-			Stream writeStream = File.Open(filepath, FileMode.Create);
+			string filepath = "C:/temp/Master.dat";
+			Stream writeStream = File.Open(filepath, FileMode.Append);
 			BinaryWriter binaryWriter = new BinaryWriter(writeStream, Encoding.ASCII);
-
+			
 			//Converting from string to bytes for text sanitation to avoid weird ascii translations
 			byte[] byteToString = Encoding.ASCII.GetBytes(textReader.ReadToEnd().Replace("\r\n", string.Empty));
 			binaryWriter.Write(byteToString);
-			
+
 			//Closing the writing streams
 			writeStream.Close();
 			textReader.Close();
 			binaryWriter.Close();
 			//--------------------------------------------------------
 			showLine();
-			Console.WriteLine("Successfull Write to test.dat");
+			Console.WriteLine("Successfull Write to Master.dat");
 			//2 streams for binary reader and final stream for text writer
 			InternalReadFromBinaryToConvert(filepath);
-        }
+		}
+
+		static void ReadFromConvertedBinary()
+		{
+			var engine = new FileHelperEngine<Block>();
+			Block[] output = engine.ReadFile("C:/temp/convert.txt");
+			List<Block> tempChain;
+			tempChain = output.ToList();
+
+			Console.WriteLine("Overwrite chain from memory? Type Yes/Y for yes.");
+			string temp = Console.ReadLine();
+			if (temp == "yes" || temp == "y")
+			{
+				blockchainServices.Blockchain.Chain = tempChain;
+			}
+
+			foreach (Block block in output)
+			{
+				Console.WriteLine(block.ToString());
+				foreach (Transaction trans in block.Transactions)
+				{
+					showLine();
+					Console.WriteLine(trans.ToString());
+				}
+				showLine();
+			}
+			Console.WriteLine("Read file from convert.txt");
+
+		}
+
+		static void GenerateBlocks(int blocks)
+		{
+			int transNo = 512;
+			int blockNo = blocks;
+			Random rnd = new Random();
+			//Creating Transactions
+			for (int i = 0; i < transNo * blockNo; i++)
+			{
+				int amount = rnd.Next(1, 1000);
+				int baseIP = 3000;
+				int sender = rnd.Next(0, 2000);
+				int receiver = rnd.Next(0, 2000);
+
+				if (rnd.Next(10) * InternalIndicateWeighting(sender) < 4.5)
+				{
+					sender = rnd.Next(0, 2000);
+				}
+
+				if (rnd.Next(10) * InternalIndicateWeighting(receiver) < 4.5)
+				{
+					receiver = rnd.Next(0, 2000);
+				}
+				while (sender == receiver)
+				{
+					receiver = rnd.Next(0, 200);
+				}
+				CommandTransactionsAdd((baseIP + sender).ToString(), (baseIP + receiver).ToString(), amount.ToString(), i.ToString());
+
+				if ((i % 512) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
+				{
+					CommandBlockchainMine("3002");
+
+				}
+			}
+			CommandBlockchainMine("3002");
+			WriteFromFixedLengthToBinary("temp");
+
+			blockchainServices.RefreshBlockchain();
+		}
+
+		#region Blockchain Commands
 		static void CommandBlockchainMine(string RewardAddress)
 		{
 			Console.WriteLine($"  Mining new block... Difficulty {blockchainServices.Blockchain.Difficulty}.");
@@ -647,6 +589,62 @@ namespace CSharpChainNetwork
 				NetworkBlockchainMine(blockchainServices.LatestBlock());
 			}
 			Console.WriteLine("");
+		}
+
+		static void CommandListNodes(List<string> Nodes)
+		{
+			foreach (string node in Nodes)
+			{
+				Console.WriteLine($"  Node: {node}");
+			}
+			Console.WriteLine("");
+		}
+
+		static void CommandListPendingTransactions(List<Transaction> PendingTransactions)
+		{
+			foreach (Transaction transaction in PendingTransactions)
+			{
+				Console.WriteLine($"  Transaction: {transaction.Amount} from {transaction.SenderAddress} to {transaction.ReceiverAddress} with description {transaction.Description}");
+			}
+			Console.WriteLine("");
+		}
+
+		static void CommandNodeAdd(string NodeUrl)
+		{
+			if (!NodeUrl.EndsWith("/")) NodeUrl += "/";
+			nodeServices.AddNode(NodeUrl);
+			Console.WriteLine($"  Node {NodeUrl} added to list of blockchain peer nodes.");
+			if (useNetwork)
+			{
+				NetworkRegister(NodeUrl);
+				CommandBlockchainUpdate();
+			}
+			Console.WriteLine("");
+		}
+
+		static void CommandHelp()
+		{
+			Console.WriteLine("Commands:");
+			Console.WriteLine("h, help = list of commands.");
+			Console.WriteLine("q, quit = exit the program.");
+			Console.WriteLine("na, node-add [url] = connect current node to other node.");
+			Console.WriteLine("nr, node-remove [url] = disconnect current node from other node.");
+			Console.WriteLine("nl, nodes-list = list connected nodes.");
+			Console.WriteLine("ta, transaction-add [senderAddress] [receiverAddress] [Amount] [Description] = create new transaction.");
+			Console.WriteLine("np, transactions-pending = list of transactions not included in block.");
+			Console.WriteLine("bm, blockchain-mine [rewardAddress] = create block from pending transactions,");
+			Console.WriteLine("bv, blockchain-valid = Validates blockchain.");
+			Console.WriteLine("bl, blockchain-length = number of blocks in blockchain.");
+			Console.WriteLine("b, block [index] = list info about specified block.");
+			Console.WriteLine("bu, update, blockchain-update = update blockchain to the longest in network.");
+			Console.WriteLine("bal, balance-get [address] = get balance for specified address.");
+			Console.WriteLine("gen, for generating a transaction auto");
+			Console.WriteLine("w, write, For Writing the blockchain to FixedLength Records");
+			Console.WriteLine("r, read, For reading from binary file");
+			Console.WriteLine();
+			Console.WriteLine("Email me: dejan@mauer.si");
+			Console.WriteLine();
+
 		}
 
 		static void CommandBlockchainValidity()
@@ -663,15 +661,6 @@ namespace CSharpChainNetwork
 			Console.WriteLine("");
 		}
 
-		static void showLine()
-        {
-			Console.WriteLine("-----------------");
-		}
-
-		static void showHash()
-        {
-			blockchainServices.TraverseChain();
-        }
 
 		static void CommandBlockchainLength()
 		{
@@ -690,11 +679,11 @@ namespace CSharpChainNetwork
 			Console.WriteLine($"    #Transactions : {block.Transactions.Count}:");
 			showLine();
 			foreach (Transaction trans in block.Transactions)
-            {
+			{
 				Console.WriteLine(trans.ToString());
 				showLine();
-            }
-			
+			}
+
 		}
 
 		static void CommandBalance(string Address)
@@ -703,7 +692,41 @@ namespace CSharpChainNetwork
 			Console.WriteLine($"  Balance for address {Address} is {balance.ToString()}.");
 			Console.WriteLine("");
 		}
+
+		static void CommandBlockchainUpdate()
+		{
+			Console.WriteLine($"  Updating blockchain with the longest found on network.");
+			if (useNetwork)
+			{
+				NetworkBlockchainUpdate();
+			}
+			Console.WriteLine("");
+		}
+
+		static void CommandNodeRemove(string NodeUrl)
+		{
+			if (!NodeUrl.EndsWith("/")) NodeUrl += "/";
+			nodeServices.RemoveNode(NodeUrl);
+			Console.WriteLine($"  Node {NodeUrl} removed to list of blockchain peer nodes.");
+			Console.WriteLine("");
+		}
+
+		static void CommandTransactionsAdd(string SenderAddress, string ReceiverAddress, string Amount, string Description)
+		{
+			Transaction transaction = new Transaction(SenderAddress, ReceiverAddress, Decimal.Parse(Amount), Description);
+			blockchainServices.AddTransaction(transaction);
+			Console.WriteLine($"  {Amount} from {SenderAddress} to {ReceiverAddress} transaction added to list of pending transactions.");
+			Console.WriteLine("");
+
+			if (useNetwork)
+			{
+				NetworkTransactionAdd(transaction);
+			}
+			Console.WriteLine("");
+		}
+
 		#endregion
+
 
 		#region NetworkSend
 
