@@ -158,7 +158,6 @@ namespace CSharpChainNetwork
 							SearchTransactionsByNode(command[1]);
 							break;
 						case "t":
-							InternalGetLastBlock();
 							
 							break;
 						default:
@@ -397,39 +396,6 @@ namespace CSharpChainNetwork
 			
         }
 
-		static Block InternalGetLastBlock()
-        {
-			Stream stream = File.Open("C:/temp/Master.dat", FileMode.Open);
-			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
-			string tempFile = "C:/temp/temp.txt";
-			StreamWriter temp = new StreamWriter(tempFile);
-			var engine = new FileHelperEngine<Block>();
-
-
-			stream.Seek(-blockSize, SeekOrigin.End);
-			string tempString = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
-			Console.WriteLine(tempString);
-			temp.WriteLine(tempString);
-			temp.Close();
-			stream.Close();
-			
-			Block[] tempGenesis = engine.ReadString(tempString);
-			
-			binReader.Close();
-
-            if (File.Exists(tempFile))
-            {
-				File.Delete(tempFile);
-            }
-
-
-			if(tempGenesis.Length > 0)
-            {
-				return tempGenesis[0];
-            }
-			return new Block();
-			
-		}
 
 		static void InternalReadFromBinaryToConvert(string filepath)
         {
@@ -460,6 +426,8 @@ namespace CSharpChainNetwork
         {
 			Console.WriteLine("-----------------");
 		}
+
+
 
 		#endregion
 		static void WriteFromFixedLengthToBinary(string savePath)
