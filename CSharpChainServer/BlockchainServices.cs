@@ -109,6 +109,7 @@ namespace CSharpChainServer
 			Stream readStream = File.Open("C:/temp/Master.dat", FileMode.Open);
 			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
 			Block previous = new Block();
+			long fileLength = binReader.BaseStream.Length;
 			Console.WriteLine("Validating...");
 			
 			for (long i = 0; i < binReader.BaseStream.Length/blockSize; i++)
@@ -116,7 +117,26 @@ namespace CSharpChainServer
 				readStream.Seek(i * blockSize, SeekOrigin.Begin);
 				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 				Block block = engine.ReadString(blockData)[0];
-				if(block.PreviousHash.Trim() == "0")
+				if (i == (fileLength / blockSize) * (0.25))
+				{
+					Console.WriteLine("25% is done");
+				}
+				else if (i == (fileLength / blockSize) * (0.5))
+				{
+					Console.WriteLine("Half way there, 50% is done");
+				}
+				else if (i == (fileLength / blockSize) * (0.75))
+				{
+					Console.WriteLine("Nearly There,75% is done");
+				}
+				else if (i == (fileLength / blockSize) * (0.9))
+				{
+					Console.WriteLine("So Close, 90% is done");
+				}
+
+
+
+				if (block.PreviousHash.Trim() == "0")
                 {
 					//Console.WriteLine("Genesis Block");
                 }else

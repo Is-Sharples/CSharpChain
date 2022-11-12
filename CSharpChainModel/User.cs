@@ -10,7 +10,16 @@ namespace CSharpChainModel
     {
         public List<UserTransaction> transactions;
         public string name;
+        public int transactionCount;
 
+        public User(string name)
+        {
+            this.name = name;
+        }
+        public User()
+        {
+
+        }
 
     }
 }
