@@ -431,27 +431,6 @@ namespace CSharpChainNetwork
 			
 		}
 
-		static async void InternalOverWriteFromStorage ()
-        {
-			Stopwatch timer = new Stopwatch();
-			timer.Start();
-			Block[] output;
-			Console.WriteLine("Uploading Blockchain From Local Files, Please do not mine blocks until it is finished");
-			await Task.Run(() =>
-			{
-				var engine = new FileHelperEngine<Block>();
-				output = engine.ReadFile("C:/temp/convert.txt");
-				List<Block> tempChain;
-				tempChain = output.ToList();
-				blockchainServices.Blockchain.Chain = tempChain;
-				InternalGetAllUsers();
-				Console.WriteLine("Engine Has finished");
-			});
-			Console.WriteLine("Time Taken to execute code"+timer.Elapsed.ToString());
-			timer.Stop();
-			ShowCommandLine();
-		}
-
 		static void InternalReadFromBinaryToConvert(string filepath)
         {
 			byte[] byteToString;
