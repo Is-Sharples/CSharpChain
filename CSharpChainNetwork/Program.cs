@@ -354,33 +354,7 @@ namespace CSharpChainNetwork
 			return tempUsers.ToArray();
 		}
 
-		static void SearchTransactionsByNode(string key)
-        {
-			Stopwatch timer = new Stopwatch();
-			timer.Start();
-			if(key == "-") {
-				Console.WriteLine("Invalid Token Inputted");
-			}else
-            {
-				List<UserTransaction> result = InternalSeekTransactionsFromFile(key.Trim());
-				showLine();
-				if (result.Count == 0)
-                {
-					Console.WriteLine("No Transactions Found");
-                }else
-                {
-					int count = 0;
-					foreach (UserTransaction uTrans in result)
-                    {
-						count++;
-                    }
-
-					Console.WriteLine($"Transaction for {key}: "+count);
-					Console.WriteLine($"Time Taken for Searching for {key}:" + timer.Elapsed.ToString());
-                }
-			}
-			timer.Stop();
-        }
+		
         #endregion
         static void InternalWriteToFixedLengthRecord(string text)
         {
@@ -608,6 +582,37 @@ namespace CSharpChainNetwork
 			timer.Stop();
 		}
 
+		static void SearchTransactionsByNode(string key)
+		{
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
+			if (key == "-")
+			{
+				Console.WriteLine("Invalid Token Inputted");
+			}
+			else
+			{
+				List<UserTransaction> result = InternalSeekTransactionsFromFile(key.Trim());
+				showLine();
+				if (result.Count == 0)
+				{
+					Console.WriteLine("No Transactions Found");
+				}
+				else
+				{
+					int count = 0;
+					foreach (UserTransaction uTrans in result)
+					{
+						count++;
+					}
+
+					Console.WriteLine($"Transaction for {key}: " + count);
+					Console.WriteLine($"Time Taken for Searching for {key}:" + timer.Elapsed.ToString());
+				}
+			}
+			timer.Stop();
+		}
+
 
 		#region Blockchain Commands
 		static void CommandBlockchainMine(string RewardAddress)
@@ -690,14 +695,6 @@ namespace CSharpChainNetwork
 			{
 				Console.WriteLine($"  Blockchain is invalid.");
 			}
-			Console.WriteLine("");
-		}
-
-
-		static void CommandBlockchainLength()
-		{
-			var length = blockchainServices.BlockchainLength();
-			Console.WriteLine($"  Blockchain length is {length.ToString()}.");
 			Console.WriteLine("");
 		}
 
