@@ -74,9 +74,7 @@ namespace CSharpChainModel
         }
 
 		public UserTransaction ToUserTransaction(int blockNum)
-        {
-			List<UserTransaction> result = new List<UserTransaction>();
-			
+        {	
 
 			return new UserTransaction(blockNum, this.SenderAddress, this.ReceiverAddress, this.Amount, this.Description);
         }

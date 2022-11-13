@@ -151,8 +151,9 @@ namespace CSharpChainNetwork
 						case "s":
 							SearchTransactionsByNode(command[1]);
 							break;
-						case "t":
-							InternalGetFrequencyDistribution();
+						case "f":
+						case "freq":
+							GetFrequencyDistribution();
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -285,7 +286,7 @@ namespace CSharpChainNetwork
 							foreach (Transaction trans in result)
 							{
 								count++;
-								userTransactions.Add(trans.ToUserTransaction(count));
+								userTransactions.Add(trans.ToUserTransaction(i));
 							}
 						}
 						else
@@ -410,14 +411,14 @@ namespace CSharpChainNetwork
 			Console.WriteLine("-----------------");
 		}
 
-		static void InternalGetFrequencyDistribution()
+		static void GetFrequencyDistribution()
         {
 			User[] users = InternalGetAllUsers();
 			Stream readStream = File.Open(master, FileMode.Open);
 			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
 			StreamWriter writer = new StreamWriter("C:/temp/users.csv");
-
+			showLine();
 			Console.WriteLine("Started Getting Frequency of transactions");
 			int total = 0;
 			for (int i = 0; i < fileLength / blockSize; i++)
@@ -461,6 +462,8 @@ namespace CSharpChainNetwork
                         }
                     }
 				}
+
+				
 			}
 
             foreach (User user in users)
@@ -471,7 +474,7 @@ namespace CSharpChainNetwork
             }
 
 			writer.WriteLine("Total,"+total);
-
+			Console.WriteLine("Finished generating Frequency CSV at C:/temp"); 
 			readStream.Close();
 			binReader.Close();
 			writer.Close();
@@ -584,6 +587,7 @@ namespace CSharpChainNetwork
 
 		static void SearchTransactionsByNode(string key)
 		{
+			StreamWriter writer = new StreamWriter($"C:/temp/BlockList/{key}.csv");
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
 			if (key == "-")
@@ -603,14 +607,16 @@ namespace CSharpChainNetwork
 					int count = 0;
 					foreach (UserTransaction uTrans in result)
 					{
+						writer.WriteLine($"{key} appeared in Block," + uTrans.blockIndex);
 						count++;
 					}
 
-					Console.WriteLine($"Transaction for {key}: " + count);
+					Console.WriteLine($"Transactions for {key}: " + count);
 					Console.WriteLine($"Time Taken for Searching for {key}:" + timer.Elapsed.ToString());
 				}
 			}
 			timer.Stop();
+			writer.Close();
 		}
 
 
@@ -676,8 +682,9 @@ namespace CSharpChainNetwork
 			Console.WriteLine("bu, update, blockchain-update = update blockchain to the longest in network.");
 			Console.WriteLine("bal, balance-get [address] = get balance for specified address.");
 			Console.WriteLine("gen, for generating a transaction auto");
-			Console.WriteLine("w, write, For Writing the blockchain to FixedLength Records");
 			Console.WriteLine("r, read, For reading from binary file");
+			Console.WriteLine("s, For searching how many transactions a user has Ex. s 3002");
+			Console.WriteLine("f, freq, For generating a user id frequency csv");
 			Console.WriteLine();
 			Console.WriteLine("Email me: dejan@mauer.si");
 			Console.WriteLine();
