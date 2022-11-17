@@ -1,13 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26730.12
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31727.386
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSharpChainModel", "CSharpChainModel\CSharpChainModel.csproj", "{F6F96EF7-DD46-4220-8B90-C7D3BBFC351D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSharpChainNetwork", "CSharpChainNetwork\CSharpChainNetwork.csproj", "{D4F93DA3-B60F-4605-A0D0-0B634CDE93E9}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSharpChainServer", "CSharpChainServer\CSharpChainServer.csproj", "{223C7A29-F2EA-4B38-A148-20D67D4C2DA9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Weighted Randomizer", "D:\Repositories\Weighted-Item-Randomizer-for-C-Sharp\Weighted Randomizer\Weighted Randomizer.csproj", "{1245BC96-2F42-404C-9F11-65A4326299D6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +29,10 @@ Global
 		{223C7A29-F2EA-4B38-A148-20D67D4C2DA9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{223C7A29-F2EA-4B38-A148-20D67D4C2DA9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{223C7A29-F2EA-4B38-A148-20D67D4C2DA9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1245BC96-2F42-404C-9F11-65A4326299D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1245BC96-2F42-404C-9F11-65A4326299D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1245BC96-2F42-404C-9F11-65A4326299D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1245BC96-2F42-404C-9F11-65A4326299D6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
