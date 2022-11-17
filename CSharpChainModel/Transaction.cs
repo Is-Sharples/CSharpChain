@@ -79,25 +79,25 @@ namespace CSharpChainModel
 			return new UserTransaction(blockNum, this.SenderAddress, this.ReceiverAddress, this.Amount, this.Description);
         }
 
-		public List<string> GetUsersFromText(string text)
+		public List<string> GetUsersFromText(string text, List<string> users)
         {
 			string recieved = "";
 			string sent = "";
-			List<string> users = new List<string>();
+			
 
             while (text.Contains("+")){
 
                 recieved = text.Substring(0, text.IndexOf("-"));
-                sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);			
-				if(users.Contains(sent))
-                {
-                }else if (users.Contains(recieved))
-                {
-                }else
+                if (!users.Contains(recieved))
                 {
 					users.Add(recieved);
+                }
+                sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);
+				
+				if (!users.Contains(sent))
+                {
 					users.Add(sent);
-				}			
+				}		
 				
 				text = text.Substring(text.IndexOf("%") + 1);
             }
