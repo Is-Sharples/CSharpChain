@@ -142,6 +142,7 @@
     <Compile Include="Controllers\NetworkController.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SQL_Class\SQLiteController.cs" />
     <Compile Include="Startup.cs" />
   </ItemGroup>
   <ItemGroup>
