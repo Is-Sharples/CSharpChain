@@ -1,4 +1,5 @@
 ﻿using CSharpChainModel;
+using CSharpChainNetwork.SQL_Class;
 using CSharpChainServer;
 using Microsoft.Owin.Hosting;
 using Newtonsoft.Json;
@@ -12,6 +13,7 @@ using System.Text;
 using FileHelpers;
 using Weighted_Randomizer;
 using System.Data.SQLite;
+
 
 namespace CSharpChainNetwork
 {
@@ -159,7 +161,8 @@ namespace CSharpChainNetwork
 						case "freq":
 							GetFrequencyDistribution();
 							break;
-						case "t":
+						case "gensql":
+							GenerateSQLLite();
 							break;
 						case "script":
 							Stopwatch timer = new Stopwatch();
@@ -169,9 +172,9 @@ namespace CSharpChainNetwork
 								GenerateBlocks(100);
 								Console.WriteLine($"finished loop:{i}");
 							}
-							Console.WriteLine("Time Taken for 50000 transactions" + timer.Elapsed.ToString());
+							Console.WriteLine("Time Taken for 50000 blocks" + timer.Elapsed.ToString());
 							GetFrequencyDistribution();
-							Console.WriteLine("Time Taken for 50000 transactions and freq report:"+ timer.Elapsed.ToString());
+							Console.WriteLine("Time Taken for 50000 blocks and freq report:"+ timer.Elapsed.ToString());
 							timer.Stop();
 							break;
 						default:
@@ -413,9 +416,6 @@ namespace CSharpChainNetwork
 
         #endregion
 
-        static void InternalConnectSQLLite()
-        {
-		}
 
 		#endregion
 
@@ -627,6 +627,23 @@ namespace CSharpChainNetwork
 
 			stream.Close();
 			binary.Close();
+		}
+
+		static void GenerateSQLLite()
+        {
+			string tableName = "users";
+			string columns = "(wallet TEXT, location TEXT)";
+			SQLiteController sQLite = new SQLiteController("C:/temp/SQLite/blockchain");
+			
+            if (sQLite.CheckForTable(tableName))
+            {
+				sQLite.CreateTable(tableName, columns);
+			}else
+            {
+				Console.WriteLine("Table Already Exists!");
+            }
+		
+
 		}
 
 		#region Blockchain Commands
