@@ -60,10 +60,10 @@ namespace CSharpChainNetwork.SQL_Class
         public bool InsertData(string tableName, string query)
         {
             //example of paramenters
-            //InsertData(tableName, "(wallet, location) VALUES('3000', '234,163
+            //InsertData(tableName, "(wallet, location) VALUES('3000', '234,163))"
             SQLiteCommand sqlite_cmd;
             sqlite_cmd = conn.CreateCommand();
-            sqlite_cmd.CommandText = $"INSERT INTO {tableName}  {query}";
+            sqlite_cmd.CommandText = $"INSERT INTO {tableName} {query}";
             try{
                 sqlite_cmd.ExecuteNonQuery();
             }
@@ -76,33 +76,43 @@ namespace CSharpChainNetwork.SQL_Class
             return true;
         }
 
-        public bool ReadData(string tableName, string query, bool getAll)
+        public string ReadData(string tableName, string columns, bool getAll, string where)
         {
-            StreamWriter writer = new StreamWriter("C:/temp/SQLite/temp.txt");
+            string path = "C:/temp/SQLite/temp.txt";
+            StreamWriter writer = new StreamWriter(path);
             SQLiteDataReader sqlite_datareader;
             SQLiteCommand sqlite_cmd;
             sqlite_cmd = conn.CreateCommand();
-            if (!getAll)
+            try
             {
-                sqlite_cmd.CommandText = $"SELECT {query} FROM {tableName}";
-            }else
-            {
-                sqlite_cmd.CommandText = $"SELECT * FROM {tableName}";
-            }
-            sqlite_datareader = sqlite_cmd.ExecuteReader();
-            int columns = sqlite_datareader.FieldCount;
-
-            while (sqlite_datareader.Read())
-            {
-                for (int i = 0; i < columns; i++)
+                if (!getAll)
                 {
-                    writer.WriteLine(sqlite_datareader.GetValue(i).ToString());    
+                    sqlite_cmd.CommandText = $"SELECT {columns} FROM {tableName} {where}";
                 }
+                else
+                {
+                    sqlite_cmd.CommandText = $"SELECT * FROM {tableName}";
+                }
+                sqlite_datareader = sqlite_cmd.ExecuteReader();
+                int cols = sqlite_datareader.FieldCount;
+
+                while (sqlite_datareader.Read())
+                {
+                    for (int i = 0; i < cols; i++)
+                    {
+                        writer.WriteLine(sqlite_datareader.GetValue(i).ToString());
+                    }
+                }
+            }catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return null;
             }
+            
 
             writer.Close();
             conn.Close();
-            return true;
+            return path;
         }
 
         public bool CheckForTable(string newTable)
