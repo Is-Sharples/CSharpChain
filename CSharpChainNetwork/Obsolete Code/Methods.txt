@@ -1,0 +1,67 @@
+﻿static User[] InternalGetAllUsers()
+        {
+			Stream stream = File.Open(master, FileMode.Open);
+			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
+			long fileLength = binReader.BaseStream.Length;
+			List<string> users = new List<string>();
+			int counter = 0;
+			Console.WriteLine("Reading Users From File");
+			for (int i = 0; i < fileLength / blockSize; i++)
+            {
+                #region progressBar
+                if (i == (fileLength / blockSize)* (0.25))
+				{
+					Console.WriteLine("25% is done");
+				}
+				else if (i == (fileLength / blockSize) * (0.5))
+				{
+					Console.WriteLine("Half way there, 50% is done");
+				}else if (i == (fileLength / blockSize) * (0.75))
+				{
+					Console.WriteLine("Nearly There,75% is done");
+				}else if (i == (fileLength / blockSize) * (0.9))
+                {
+					Console.WriteLine("So Close, 90% is done");
+                }
+
+				#endregion
+
+				
+                stream.Seek(i * blockSize, SeekOrigin.Begin);
+				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
+				blockData = blockData.Substring(85, 12129);
+				List<string> result = utilities.GetUsersFromText(blockData, users);
+				
+				if(result.Count > counter)
+                {
+					counter = result.Count;
+                }
+				if (result.Count == maxUsers)
+                {
+					break;
+                }
+                if (result.Count != counter)
+                {
+					foreach (string user in result)
+					{
+						if (!users.Contains(user))
+						{
+							users.Add(user);
+						}
+					}
+				}
+			}
+			users.Sort();
+			stream.Close();
+			binReader.Close();
+			List<User> tempUsers = new List<User>();
+			foreach(string user in users)
+            {
+				tempUsers.Add(new User(user));
+            }
+			showLine();
+			tempUsers.RemoveAt(tempUsers.Count-1);
+			tempUsers.RemoveAt(tempUsers.Count-1);
+			//return tempUsers.ToArray();
+			return masterUsers;
+		}
