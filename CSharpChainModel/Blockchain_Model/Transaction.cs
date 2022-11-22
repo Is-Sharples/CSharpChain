@@ -39,14 +39,14 @@ namespace CSharpChainModel
 				$"Description: {this.Description} ";
 		}
 
-		public List<Transaction> SearchForTransactions(string text, string key)
+		public List<UserTransaction> SearchForTransactions(string text, string key, int blockNum)
         {
 			string recieved = "";
 			string sent = "";
 			decimal amount = 0;
 			string desc = "";
 			
-			List<Transaction> list = new List<Transaction>();
+			List<UserTransaction> list = new List<UserTransaction>();
 			/*
 			 * Using arbitrary delimiters the mathematical symbols are used 
 			 * to distinguish the different strings as data types:
@@ -57,7 +57,7 @@ namespace CSharpChainModel
 			 * the % symbol is the end of the transaction
 			*/
 			
-			while (text.Contains(key))
+			while (text.Contains("%"))
 			{
 				
 				if (text.Substring(0,text.IndexOf("+")).Contains(key))
@@ -66,7 +66,7 @@ namespace CSharpChainModel
 					sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+")-text.IndexOf("-")-1);
 					desc = text.Substring(text.IndexOf("+") + 1, text.IndexOf("*")-text.IndexOf("+")-1);
 					amount = Decimal.Parse(text.Substring(text.IndexOf("*") + 1, text.IndexOf("%")-text.IndexOf("*")-1));
-					list.Add(new Transaction(sent, recieved, amount, desc));
+					list.Add(new UserTransaction(blockNum, sent, recieved, amount, desc));
 				}
 				text = text.Substring(text.IndexOf("%") + 1);
 			}
@@ -122,6 +122,26 @@ namespace CSharpChainModel
 			}
 			return users;
 		}
+
+		public List<User> PartialGetUsersFromText(string text)
+        {
+			string recieved = "";
+			string sent = "";
+			List<User> users = new List<User>();
+
+			while (text.Contains("+"))
+			{
+
+				recieved = text.Substring(0, text.IndexOf("-"));
+				sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);
+				users.Add(new User(recieved));
+				users.Add(new User(sent));
+
+				text = text.Substring(text.IndexOf("%") + 1);
+			}
+			return users;
+		}
+
 	}
     }
 
