@@ -164,6 +164,7 @@ namespace CSharpChainNetwork
 							break;
 						case "gensql":
 							GenerateSQLLite(true);
+							GetLocationOfBlocks();
 							break;
 						case "t":
 							
@@ -262,16 +263,11 @@ namespace CSharpChainNetwork
 						string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 						blockData = blockData.Substring(85, 12129);
 						//parse from transactions characters to transactional data and store in list
-						List<Transaction> result = utilities.SearchForTransactions(blockData, key);
+						List<UserTransaction> result = utilities.SearchForTransactions(blockData, key, i);
 
 						if (result.Count > 0)
 						{
-							int count = 0;
-							foreach (Transaction trans in result)
-							{
-								count++;
-								userTransactions.Add(trans.ToUserTransaction(i));
-							}
+							userTransactions.AddRange(result);
 						}
 						else
 						{
