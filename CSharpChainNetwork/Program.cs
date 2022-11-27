@@ -182,9 +182,9 @@ namespace CSharpChainNetwork
 						case "script":
 							Stopwatch timer = new Stopwatch();
 							timer.Start();
-                            for (int i = 0; i < 500; i++)
+                            for (int i = 0; i < 5; i++)
                             {
-								GenerateBlocks(100);
+								GenerateBlocks(10000);
 								Console.WriteLine($"finished loop:{i}");
 							}
 							Console.WriteLine("Time Taken for 50000 blocks" + timer.Elapsed.ToString());
@@ -322,7 +322,7 @@ namespace CSharpChainNetwork
 			for(int i = 0; i < blocks.Length;i++)
             {
 				List<User> result = utilities.GetUsersForIndex(blocks[i]);
-				Console.WriteLine($"{i}/{blocks.Length}");
+				Console.WriteLine($"Progress: {i+1}/{blocks.Length}");
 				foreach (User user in result)
 				{
 					if (user.name != "SYSTEM" && user.name != "System2")
@@ -571,8 +571,8 @@ namespace CSharpChainNetwork
 				readStream.Seek(i * blockSize, SeekOrigin.Begin);
 				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 				blockData = blockData.Substring(85, 12129);
-				List<string> result = utilities.PartialGetUserCountFromText(blockData);
-
+				string[] result = utilities.GetUsersForIndex(blockData);
+				Console.WriteLine($"Progress: {i}/{fileLength/blockSize}");
 				#region progressBar
 				if (i == (fileLength / blockSize) * (0.25))
 				{
@@ -608,7 +608,7 @@ namespace CSharpChainNetwork
 							{
 								users[num].locationString.Add($"{i}");
 							}
-							else if(!users[num].locationString.Contains($"{i}"))
+							else
 							{
 								users[num].locationString.Add($"{i}");
 							}

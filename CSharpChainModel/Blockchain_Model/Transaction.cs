@@ -141,6 +141,27 @@ namespace CSharpChainModel
 			return users;
 		}
 
+		public string[] GetUsersForIndex(string text)
+		{
+			string recieved = "";
+			string sent = "";
+			
+			HashSet<string> tempList = new HashSet<string>();
+			while (text.Contains("+"))
+			{
+				recieved = text.Substring(0, text.IndexOf("-"));
+				sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);
+				tempList.Add(recieved);
+				tempList.Add(sent);
+
+				text = text.Substring(text.IndexOf("%") + 1);
+			}
+
+			string[] users = new string[tempList.Count];
+			tempList.CopyTo(users);
+			return users;
+		}
+
 	}
     }
 
