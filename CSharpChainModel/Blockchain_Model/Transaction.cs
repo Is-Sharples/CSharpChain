@@ -112,7 +112,6 @@ namespace CSharpChainModel
 
 			while (text.Contains("+"))
 			{
-
 				recieved = text.Substring(0, text.IndexOf("-"));
 				sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);
 				users.Add(recieved);
@@ -123,22 +122,22 @@ namespace CSharpChainModel
 			return users;
 		}
 
-		public List<User> PartialGetUsersFromText(string text)
+		public List<User> GetUsersForIndex(Block block)
         {
 			string recieved = "";
 			string sent = "";
+			HashSet<string> tempList = new HashSet<string>();
 			List<User> users = new List<User>();
-
-			while (text.Contains("+"))
-			{
-
-				recieved = text.Substring(0, text.IndexOf("-"));
-				sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);
-				users.Add(new User(recieved));
-				users.Add(new User(sent));
-
-				text = text.Substring(text.IndexOf("%") + 1);
-			}
+            foreach (Transaction trans in block.Transactions)
+            {
+				tempList.Add(trans.ReceiverAddress);
+				tempList.Add(trans.SenderAddress);
+            }
+			foreach(string user in tempList)
+            {
+				users.Add(new User(user));
+            }
+			
 			return users;
 		}
 

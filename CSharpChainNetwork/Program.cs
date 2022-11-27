@@ -126,7 +126,7 @@ namespace CSharpChainNetwork
 
 						case "blockchain-length":
 						case "bl":
-							SimpleBlockchainLength();
+							SimpleBlockchainLength(true);
 							break;
 
 						case "block":
@@ -162,7 +162,7 @@ namespace CSharpChainNetwork
 							break;
 						case "search":
 						case "s":
-							SearchTransactionsByNode(command[1]);
+							SearchTransactionsByNode(command[1], command[2]);
 							break;
 						case "f":
 						case "freq":
@@ -173,12 +173,7 @@ namespace CSharpChainNetwork
 							GetLocationOfBlocks();
 							break;
 						case "t":
-							StreamReader stream = new StreamReader(master);
-							long temp = stream.BaseStream.Length / blockSize;
-							stream.Close();
-							InternalAppendSQLiteIndex(temp -2);
-
-							
+							//InternalAppendSQLiteIndex();
 							break;
 						case "ss":
 							SearchForWalletInSQLite(command[1]);
@@ -241,6 +236,7 @@ namespace CSharpChainNetwork
 		
         #region Internal Searching functions
 		
+
 		static List<UserTransaction> InternalSeekTransactionsFromFile(string key)
         {
 			List<UserTransaction> userTransactions = new List<UserTransaction>();
@@ -281,7 +277,6 @@ namespace CSharpChainNetwork
 						blockData = blockData.Substring(85, 12129);
 						//parse from transactions characters to transactional data and store in list
 						List<UserTransaction> result = utilities.SearchForTransactions(blockData, key, i);
-						
 						if (result.Count > 0)
 						{
 							userTransactions.AddRange(result);
@@ -304,54 +299,60 @@ namespace CSharpChainNetwork
 			return userTransactions;
 		}
 
-		
-
 		//Method has no effect, needs to be redone
-		static void InternalAppendSQLiteIndex(long oldBlockNum)
+		static void InternalAppendSQLiteIndex(Block[] blocks)
         {
+			long fileLength = SimpleBlockchainLength(false);
+			fileLength -= blocks.Length;
+			Stopwatch timer = new Stopwatch();
 			User[] users = masterUsers;
 			Transaction utilities = new Transaction();
 			Stream stream = File.Open(master, FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
-			long fileLength = binReader.BaseStream.Length;
-			int blockNum = (int)(fileLength / blockSize) ;
 			SQLiteController sql = new SQLiteController(database);
-			
 
+			timer.Start();
 			foreach (User user in users)
 			{
-				//user.locationString.Add(sql.ReadDataForAppending("location", "users", $"WHERE wallet='{user.name}'", false));
-				string temp = sql.ReadDataForAppending("location", "users", $"WHERE wallet='{user.name}'", false);
-				user.locationString.AddRange(temp.Split(','));
+				StreamWriter writer = new StreamWriter($"C:/temp/SQLite/AppendFiles/{user.name}.txt");
+				writer.WriteLine(sql.ReadDataForAppending("location", "users", $"WHERE wallet='{user.name}'", false));
+				writer.Close();
 			}
-			//For Testing put 0
-			for (long i = oldBlockNum; i < blockNum; i++)
+			
+			for(int i = 0; i < blocks.Length;i++)
             {
-				stream.Seek(i * blockSize, SeekOrigin.Begin);
-				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
-				blockData = blockData.Substring(85, 12129);
-				List<User> result = utilities.PartialGetUsersFromText(blockData);
-					
-                foreach (User user in result)
-                {
-                    if (user.name != "SYSTEM" && user.name != "System2")
-                    {
-						if (!users[int.Parse(user.name) - 3000].locationString[0].Contains($"{i}"))
-						{
-							users[int.Parse(user.name) - 3000].locationString.Add($"{i}");
-						}
+				List<User> result = utilities.GetUsersForIndex(blocks[i]);
+				Console.WriteLine($"{i}/{blocks.Length}");
+				foreach (User user in result)
+				{
+					if (user.name != "SYSTEM" && user.name != "System2")
+					{
+						StreamReader tempReader = new StreamReader($"C:/temp/SQLite/AppendFiles/{user.name}.txt");
+						string temp = tempReader.ReadToEnd().Trim();
+						tempReader.Close();
+						StreamWriter writer = new StreamWriter($"C:/temp/SQLite/AppendFiles/{user.name}.txt", append: true);
+						if(temp != "")
+                        {
+							writer.Write($",{fileLength + i}");
+							
+						}else
+                        {
+							writer.Write($"{fileLength + i}");
+                        }
+						writer.Close();
 					}
 				}
 			}
 
 			foreach (User user in users)
 			{
-				if (user.locationString.Count > 1)
-				{
-					string temp = string.Join(",", user.locationString);
-					sql.CustomCommand($"UPDATE users SET location = '{temp}' WHERE wallet='{user.name}'");
-				}
+				StreamReader tempReader = new StreamReader($"C:/temp/SQLite/AppendFiles/{user.name}.txt");
+				string temp = tempReader.ReadToEnd().Trim();
+				sql.CustomCommand($"UPDATE users SET location = '{temp}' WHERE wallet='{user.name}'");
 			}
+
+			Console.WriteLine($"Time Taken for sql{timer.Elapsed.ToString()}");
+			timer.Stop();
 			sql.CloseConnection();
 			stream.Close();
 			binReader.Close();
@@ -522,7 +523,7 @@ namespace CSharpChainNetwork
 			int transNo = 512;
 			int blockNo = blocks;
 			Random rnd = new Random();
-            
+			List<Block> newBlocks = new List<Block>();
 			//Creating Transactions
 			for (int i = 0; i < transNo * blockNo; i++)
 			{
@@ -541,16 +542,16 @@ namespace CSharpChainNetwork
 
 				if ((i % transNo) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
 				{
-					CommandBlockchainMine("System2");
+					newBlocks.Add(CommandBlockchainMine("System2"));
 					
 				}
 			}
-			CommandBlockchainMine("System2");
+			newBlocks.Add(CommandBlockchainMine("System2"));
 			WriteFromFixedLengthToBinary("temp");
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();
 			Console.WriteLine("Updating SQLite...");
-			InternalAppendSQLiteIndex(fileLengthInBlocks);
+			InternalAppendSQLiteIndex(newBlocks.ToArray());
 			Console.WriteLine("Finished!!");
 			timer.Stop();
 		}
@@ -603,13 +604,13 @@ namespace CSharpChainNetwork
 						{
 							int num = int.Parse(user) - 3000;
 							users[num].transactionCount++;
-							if (users[num].locationCSV == "")
+							if (users[num].locationString.Count == 0)
 							{
 								users[num].locationString.Add($"{i}");
 							}
-							else
+							else if(!users[num].locationString.Contains($"{i}"))
 							{
-								users[num].locationString.Add($",{i}");
+								users[num].locationString.Add($"{i}");
 							}
 						}
 					}
@@ -629,7 +630,7 @@ namespace CSharpChainNetwork
 			readStream.Close();
 			binReader.Close();
 		}
-		static void SearchTransactionsByNode(string key)
+		static void SearchTransactionsByNode(string key, string showAll)
 		{
 			StreamWriter writer = new StreamWriter($"C:/temp/BlockList/{key}.csv");
 			Stopwatch timer = new Stopwatch();
@@ -643,7 +644,16 @@ namespace CSharpChainNetwork
 			{
 				//timer.Start();
 				List<UserTransaction> result = InternalSeekTransactionsFromFile(key.Trim());
-				//timer.Stop();
+				List<int> foundInBlocks = new List<int>();
+                foreach (UserTransaction user in result)
+                {
+                    if (!foundInBlocks.Contains(user.blockIndex))
+                    {
+						foundInBlocks.Add(user.blockIndex);
+                    }
+                }
+
+
 				showLine();
 				if (result.Count == 0)
 				{
@@ -652,13 +662,23 @@ namespace CSharpChainNetwork
 				else
 				{
 					int count = 0;
-					foreach (UserTransaction uTrans in result)
+					foreach (int index in foundInBlocks)
 					{
-						writer.WriteLine($"{key} appeared in Block," + uTrans.blockIndex);
+						writer.WriteLine($"{key} appeared in Block," + index);
 						count++;
 					}
 
-					Console.WriteLine($"Transactions for {key}: " + count);
+                    if (showAll == "true")
+                    {
+						foreach(UserTransaction trans in result)
+                        {
+							Console.WriteLine(trans.ToString());
+							showLine();
+                        }
+                    }
+
+					Console.WriteLine($"Transactions for {key} found in No of Blocks: " + count);
+					Console.WriteLine($"Transactions for {key}:"+result.Count);
 					//Console.WriteLine($"Time Taken for Searching for {key}:" + timer.Elapsed.ToString());
 				}
 			}
@@ -741,15 +761,21 @@ namespace CSharpChainNetwork
 			timer.Stop();
 		}
 
-		static void SimpleBlockchainLength()
+		static long SimpleBlockchainLength(bool show)
 		{
 			Stream stream = File.Open(master, FileMode.Open);
 			BinaryReader binary = new BinaryReader(stream, Encoding.ASCII);
-
-			Console.WriteLine(binary.BaseStream.Length / blockSize);
+			long temp = binary.BaseStream.Length / blockSize;
+            if (show)
+            {
+				Console.WriteLine(temp);
+			}
+			
 
 			stream.Close();
 			binary.Close();
+
+			return temp;
 		}
 
 		static void GenerateSQLLite(bool primaryKey)
@@ -800,10 +826,10 @@ namespace CSharpChainNetwork
         }
 
 		#region Blockchain Commands
-		static void CommandBlockchainMine(string RewardAddress)
+		static Block CommandBlockchainMine(string RewardAddress)
 		{
 			Console.WriteLine($"  Mining new block... Difficulty {blockchainServices.Blockchain.Difficulty}.");
-			blockchainServices.MineBlock(RewardAddress);
+			Block temp = blockchainServices.MineBlock(RewardAddress);
 			Console.WriteLine($"  Block has been added to blockchain. Blockhain length is {blockchainServices.BlockchainLength().ToString()}.");
 			Console.WriteLine("");
 			if (useNetwork)
@@ -811,6 +837,7 @@ namespace CSharpChainNetwork
 				NetworkBlockchainMine(blockchainServices.LatestBlock());
 			}
 			Console.WriteLine("");
+			return temp;
 		}
 
 		static void CommandListNodes(List<string> Nodes)
