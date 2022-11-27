@@ -26,8 +26,9 @@ namespace CSharpChainNetwork
 		public static NodeServices nodeServices;
 		static int blockSize = 12288;
 		static bool useNetwork = true;
-		static int maxUsers = 2002;
+		static int maxUsers = 2000;
 		static Transaction utilities = new Transaction();
+		static User[] masterUsers = new User[maxUsers];
 		
 
 		public static void ShowCommandLine()
@@ -57,7 +58,11 @@ namespace CSharpChainNetwork
 				nodeServices = new NodeServices(blockchainServices.Blockchain);
 
 				string commandLine;
-
+				for(int i = 0; i < masterUsers.Length; i++)
+                {
+					int temp = 3000 + i;
+					masterUsers[i] = new User($"{temp}");
+                }
 				ShowCommandLine();
                 
 				do
@@ -121,7 +126,7 @@ namespace CSharpChainNetwork
 
 						case "blockchain-length":
 						case "bl":
-							SimpleBlockchainLength();
+							SimpleBlockchainLength(true);
 							break;
 
 						case "block":
@@ -139,8 +144,9 @@ namespace CSharpChainNetwork
 						case "bu":
 							CommandBlockchainUpdate();
 							break;
-						case "gen": 
-							if(command[1].Length > 0)
+						case "gen":
+							GenerateSQLLite(true);
+							if (command[1].Length > 0)
                             {
 								GenerateBlocks(int.Parse(command[1]));
 								
@@ -156,7 +162,7 @@ namespace CSharpChainNetwork
 							break;
 						case "search":
 						case "s":
-							SearchTransactionsByNode(command[1]);
+							SearchTransactionsByNode(command[1], command[2]);
 							break;
 						case "f":
 						case "freq":
@@ -167,23 +173,27 @@ namespace CSharpChainNetwork
 							GetLocationOfBlocks();
 							break;
 						case "t":
-							
-							//GetLocationOfBlocks();
-							SearchForWalletInSQLite(command[1]);
-							//InternalShowAllUsers(InternalGetAllUsers());
+							//InternalAppendSQLiteIndex();
 							break;
+						case "ss":
+							SearchForWalletInSQLite(command[1]);
+							break;
+
 						case "script":
 							Stopwatch timer = new Stopwatch();
 							timer.Start();
-                            for (int i = 0; i < 500; i++)
+                            for (int i = 0; i < 5; i++)
                             {
-								GenerateBlocks(100);
+								GenerateBlocks(10000);
 								Console.WriteLine($"finished loop:{i}");
 							}
 							Console.WriteLine("Time Taken for 50000 blocks" + timer.Elapsed.ToString());
 							GetFrequencyDistribution();
 							Console.WriteLine("Time Taken for 50000 blocks and freq report:"+ timer.Elapsed.ToString());
 							timer.Stop();
+							break;
+						case "cls":
+							Console.Clear();
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -226,6 +236,7 @@ namespace CSharpChainNetwork
 		
         #region Internal Searching functions
 		
+
 		static List<UserTransaction> InternalSeekTransactionsFromFile(string key)
         {
 			List<UserTransaction> userTransactions = new List<UserTransaction>();
@@ -233,12 +244,14 @@ namespace CSharpChainNetwork
 			Stream stream = File.Open(master, FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
-
+			List<Transaction> transactions = new List<Transaction>();
 			Console.WriteLine($"Started Searching for {key}");
 			showLine();
 			//For Every block in the chain, read from binary file, block by block 
 			if(fileLength % blockSize == 0)
             {
+				Stopwatch timer = new Stopwatch();
+				timer.Start();
 				for (int i = 0; i < fileLength / blockSize; i++)
 				{
 					if (i == (fileLength / blockSize) * (0.25))
@@ -264,7 +277,6 @@ namespace CSharpChainNetwork
 						blockData = blockData.Substring(85, 12129);
 						//parse from transactions characters to transactional data and store in list
 						List<UserTransaction> result = utilities.SearchForTransactions(blockData, key, i);
-
 						if (result.Count > 0)
 						{
 							userTransactions.AddRange(result);
@@ -275,82 +287,76 @@ namespace CSharpChainNetwork
 						}
 					}
 				}
+
+				Console.WriteLine("Tiem Taken:"+timer.Elapsed.ToString());
+				timer.Stop();
 			}else
             {
 				Console.WriteLine("ERROR: Reading File!!");
             }
-			
+
 			stream.Close();
 			return userTransactions;
 		}
 
-		static User[] InternalGetAllUsers()
+		//Method has no effect, needs to be redone
+		static void InternalAppendSQLiteIndex(Block[] blocks)
         {
+			long fileLength = SimpleBlockchainLength(false);
+			fileLength -= blocks.Length;
+			Stopwatch timer = new Stopwatch();
+			User[] users = masterUsers;
+			Transaction utilities = new Transaction();
 			Stream stream = File.Open(master, FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
-			long fileLength = binReader.BaseStream.Length;
-			List<string> users = new List<string>();
-			int counter = 0;
-			Console.WriteLine("Reading Users From File");
-			for (int i = 0; i < fileLength / blockSize; i++)
+			SQLiteController sql = new SQLiteController(database);
+
+			timer.Start();
+			foreach (User user in users)
+			{
+				StreamWriter writer = new StreamWriter($"C:/temp/SQLite/AppendFiles/{user.name}.txt");
+				writer.WriteLine(sql.ReadDataForAppending("location", "users", $"WHERE wallet='{user.name}'", false));
+				writer.Close();
+			}
+			
+			for(int i = 0; i < blocks.Length;i++)
             {
-                #region progressBar
-                if (i == (fileLength / blockSize)* (0.25))
+				List<User> result = utilities.GetUsersForIndex(blocks[i]);
+				Console.WriteLine($"Progress: {i+1}/{blocks.Length}");
+				foreach (User user in result)
 				{
-					Console.WriteLine("25% is done");
-				}
-				else if (i == (fileLength / blockSize) * (0.5))
-				{
-					Console.WriteLine("Half way there, 50% is done");
-				}else if (i == (fileLength / blockSize) * (0.75))
-				{
-					Console.WriteLine("Nearly There,75% is done");
-				}else if (i == (fileLength / blockSize) * (0.9))
-                {
-					Console.WriteLine("So Close, 90% is done");
-                }
-
-				#endregion
-
-				
-                stream.Seek(i * blockSize, SeekOrigin.Begin);
-				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
-				blockData = blockData.Substring(85, 12129);
-				List<string> result = utilities.GetUsersFromText(blockData, users);
-				
-				if(result.Count > counter)
-                {
-					counter = result.Count;
-                }
-				if (result.Count == maxUsers)
-                {
-					break;
-                }
-                if (result.Count != counter)
-                {
-					foreach (string user in result)
+					if (user.name != "SYSTEM" && user.name != "System2")
 					{
-						if (!users.Contains(user))
-						{
-							users.Add(user);
-						}
+						StreamReader tempReader = new StreamReader($"C:/temp/SQLite/AppendFiles/{user.name}.txt");
+						string temp = tempReader.ReadToEnd().Trim();
+						tempReader.Close();
+						StreamWriter writer = new StreamWriter($"C:/temp/SQLite/AppendFiles/{user.name}.txt", append: true);
+						if(temp != "")
+                        {
+							writer.Write($",{fileLength + i}");
+							
+						}else
+                        {
+							writer.Write($"{fileLength + i}");
+                        }
+						writer.Close();
 					}
 				}
 			}
-			users.Sort();
+
+			foreach (User user in users)
+			{
+				StreamReader tempReader = new StreamReader($"C:/temp/SQLite/AppendFiles/{user.name}.txt");
+				string temp = tempReader.ReadToEnd().Trim();
+				sql.CustomCommand($"UPDATE users SET location = '{temp}' WHERE wallet='{user.name}'");
+			}
+
+			Console.WriteLine($"Time Taken for sql{timer.Elapsed.ToString()}");
+			timer.Stop();
+			sql.CloseConnection();
 			stream.Close();
 			binReader.Close();
-			List<User> tempUsers = new List<User>();
-			foreach(string user in users)
-            {
-				tempUsers.Add(new User(user));
-            }
-			showLine();
-			tempUsers.RemoveAt(tempUsers.Count-1);
-			tempUsers.RemoveAt(tempUsers.Count-1);
-			return tempUsers.ToArray();
 		}
-
 
         #endregion
 
@@ -495,6 +501,7 @@ namespace CSharpChainNetwork
 
 		}
 
+		//before running this run 'genSQL' 
 		static void GenerateBlocks(int blocks)
 		{
 			//to avoid resetting weights
@@ -502,13 +509,21 @@ namespace CSharpChainNetwork
             {
 				InternalSetupWeights();
 			}
+			long fileLengthInBlocks = 0;
+
+			if (File.Exists(master))
+            {
+				StreamReader stream = new StreamReader(master);
+				fileLengthInBlocks = (stream.BaseStream.Length) / blockSize;
+				stream.Close();
+			}
 			
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
 			int transNo = 512;
 			int blockNo = blocks;
 			Random rnd = new Random();
-            
+			List<Block> newBlocks = new List<Block>();
 			//Creating Transactions
 			for (int i = 0; i < transNo * blockNo; i++)
 			{
@@ -527,13 +542,17 @@ namespace CSharpChainNetwork
 
 				if ((i % transNo) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
 				{
-					CommandBlockchainMine("System2");
+					newBlocks.Add(CommandBlockchainMine("System2"));
+					
 				}
 			}
-			CommandBlockchainMine("System2");
+			newBlocks.Add(CommandBlockchainMine("System2"));
 			WriteFromFixedLengthToBinary("temp");
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();
+			Console.WriteLine("Updating SQLite...");
+			InternalAppendSQLiteIndex(newBlocks.ToArray());
+			Console.WriteLine("Finished!!");
 			timer.Stop();
 		}
 
@@ -541,7 +560,7 @@ namespace CSharpChainNetwork
 		{
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
-			User[] users = InternalGetAllUsers();
+			User[] users = masterUsers;
 			Stream readStream = File.Open(master, FileMode.Open);
 			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
@@ -552,8 +571,8 @@ namespace CSharpChainNetwork
 				readStream.Seek(i * blockSize, SeekOrigin.Begin);
 				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 				blockData = blockData.Substring(85, 12129);
-				List<string> result = utilities.PartialGetUserCountFromText(blockData);
-
+				string[] result = utilities.GetUsersForIndex(blockData);
+				Console.WriteLine($"Progress: {i}/{fileLength/blockSize}");
 				#region progressBar
 				if (i == (fileLength / blockSize) * (0.25))
 				{
@@ -576,8 +595,6 @@ namespace CSharpChainNetwork
 					Console.WriteLine("We've barely started, 15% is done");
 				}
                 #endregion
-               
-				//Console.WriteLine("Iteration Number:"+i);
               
 				foreach (string user in result)
 				{
@@ -587,14 +604,13 @@ namespace CSharpChainNetwork
 						{
 							int num = int.Parse(user) - 3000;
 							users[num].transactionCount++;
-							if (users[num].locationCSV == "")
+							if (users[num].locationString.Count == 0)
 							{
 								users[num].locationString.Add($"{i}");
 							}
 							else
 							{
-								users[num].locationString.Add($",{i}");
-								//users[num].locationCSV += $",{i}";
+								users[num].locationString.Add($"{i}");
 							}
 						}
 					}
@@ -608,18 +624,17 @@ namespace CSharpChainNetwork
 			foreach (User user in users)
 			{
 				sql.InsertData("users", $"(wallet, location) VALUES('{user.name}', '{user.locationCSV}')");
-				//Console.WriteLine($"User {user.name} transactions found in:"+user.locationCSV);
 			}
 			Console.WriteLine("Time Passed:" + timer.Elapsed.ToString());
 			timer.Stop();
 			readStream.Close();
 			binReader.Close();
 		}
-		static void SearchTransactionsByNode(string key)
+		static void SearchTransactionsByNode(string key, string showAll)
 		{
 			StreamWriter writer = new StreamWriter($"C:/temp/BlockList/{key}.csv");
 			Stopwatch timer = new Stopwatch();
-			timer.Start();
+			
 			
 			if (key == "-")
 			{
@@ -627,7 +642,18 @@ namespace CSharpChainNetwork
 			}
 			else
 			{
+				//timer.Start();
 				List<UserTransaction> result = InternalSeekTransactionsFromFile(key.Trim());
+				List<int> foundInBlocks = new List<int>();
+                foreach (UserTransaction user in result)
+                {
+                    if (!foundInBlocks.Contains(user.blockIndex))
+                    {
+						foundInBlocks.Add(user.blockIndex);
+                    }
+                }
+
+
 				showLine();
 				if (result.Count == 0)
 				{
@@ -636,14 +662,24 @@ namespace CSharpChainNetwork
 				else
 				{
 					int count = 0;
-					foreach (UserTransaction uTrans in result)
+					foreach (int index in foundInBlocks)
 					{
-						writer.WriteLine($"{key} appeared in Block," + uTrans.blockIndex);
+						writer.WriteLine($"{key} appeared in Block," + index);
 						count++;
 					}
 
-					Console.WriteLine($"Transactions for {key}: " + count);
-					Console.WriteLine($"Time Taken for Searching for {key}:" + timer.Elapsed.ToString());
+                    if (showAll == "true")
+                    {
+						foreach(UserTransaction trans in result)
+                        {
+							Console.WriteLine(trans.ToString());
+							showLine();
+                        }
+                    }
+
+					Console.WriteLine($"Transactions for {key} found in No of Blocks: " + count);
+					Console.WriteLine($"Transactions for {key}:"+result.Count);
+					//Console.WriteLine($"Time Taken for Searching for {key}:" + timer.Elapsed.ToString());
 				}
 			}
 			timer.Stop();
@@ -654,7 +690,7 @@ namespace CSharpChainNetwork
 		{
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
-			User[] users = InternalGetAllUsers();
+			User[] users = masterUsers;
 			Stream readStream = File.Open(master, FileMode.Open);
 			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
@@ -716,7 +752,7 @@ namespace CSharpChainNetwork
 				total += user.transactionCount;
 			}
 			//use only for debugging
-			writer.WriteLine("Total," + total);
+			//writer.WriteLine("Total," + total);
 			Console.WriteLine("Finished generating Frequency CSV at C:/temp");
 			Console.WriteLine("Time Taken:"+ timer.Elapsed.ToString());
 			readStream.Close();
@@ -725,15 +761,21 @@ namespace CSharpChainNetwork
 			timer.Stop();
 		}
 
-		static void SimpleBlockchainLength()
+		static long SimpleBlockchainLength(bool show)
 		{
 			Stream stream = File.Open(master, FileMode.Open);
 			BinaryReader binary = new BinaryReader(stream, Encoding.ASCII);
-
-			Console.WriteLine(binary.BaseStream.Length / blockSize);
+			long temp = binary.BaseStream.Length / blockSize;
+            if (show)
+            {
+				Console.WriteLine(temp);
+			}
+			
 
 			stream.Close();
 			binary.Close();
+
+			return temp;
 		}
 
 		static void GenerateSQLLite(bool primaryKey)
@@ -767,18 +809,27 @@ namespace CSharpChainNetwork
 			
 			timer.Start();
 			string temp = reader.ReadToEnd();
+			if(!(temp.Trim() == ""))
+            {
+				string[] result = temp.Split(',');
+				Console.WriteLine(result.Length);
+			}else
+            {
+				showLine();
+				Console.WriteLine("No Transactions found");
+            }
 			
-			string[] result = temp.Split(',');
-			Console.WriteLine(result.Length);
+			
 			Console.WriteLine("Time Taken:"+timer.Elapsed.ToString());
 			timer.Stop();
+			reader.Close();
         }
 
 		#region Blockchain Commands
-		static void CommandBlockchainMine(string RewardAddress)
+		static Block CommandBlockchainMine(string RewardAddress)
 		{
 			Console.WriteLine($"  Mining new block... Difficulty {blockchainServices.Blockchain.Difficulty}.");
-			blockchainServices.MineBlock(RewardAddress);
+			Block temp = blockchainServices.MineBlock(RewardAddress);
 			Console.WriteLine($"  Block has been added to blockchain. Blockhain length is {blockchainServices.BlockchainLength().ToString()}.");
 			Console.WriteLine("");
 			if (useNetwork)
@@ -786,6 +837,7 @@ namespace CSharpChainNetwork
 				NetworkBlockchainMine(blockchainServices.LatestBlock());
 			}
 			Console.WriteLine("");
+			return temp;
 		}
 
 		static void CommandListNodes(List<string> Nodes)

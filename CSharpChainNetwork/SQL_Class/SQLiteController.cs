@@ -115,6 +115,41 @@ namespace CSharpChainNetwork.SQL_Class
             return path;
         }
 
+        public string ReadDataForAppending(string columns, string tableName, string where,bool close)
+        {
+            SQLiteDataReader sqlite_datareader;
+            SQLiteCommand sqlite_cmd;
+            sqlite_cmd = conn.CreateCommand();
+            //List<string> result = new List<string>();
+            string result = "";
+            try
+            {       
+                sqlite_cmd.CommandText = $"SELECT {columns} FROM {tableName} {where}";
+                
+                sqlite_datareader = sqlite_cmd.ExecuteReader();
+                int cols = sqlite_datareader.FieldCount;
+
+                while (sqlite_datareader.Read())
+                {
+                    for (int i = 0; i < cols; i++)
+                    {
+                        result = (sqlite_datareader.GetValue(i).ToString());
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return null;
+            }
+            if (close)
+            {
+                conn.Close();
+            }
+            
+            return result;
+        }
+
         public bool CheckForTable(string newTable)
         {
             List<string> tables = new List<string>();
@@ -137,5 +172,28 @@ namespace CSharpChainNetwork.SQL_Class
             return true;
         }
 
+        public void CloseConnection()
+        {
+            this.conn.Close();
+        }
+
+        public int CustomCommand(string query)
+        {
+            SQLiteCommand sqlite_cmd;
+            sqlite_cmd = conn.CreateCommand();
+            sqlite_cmd.CommandText = query;
+            try
+            {
+                sqlite_cmd.ExecuteNonQuery();
+                return 200;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return 400;
+            }
+
+            return 400;
+        }
     }
 }
