@@ -173,7 +173,9 @@ namespace CSharpChainNetwork
 							GetLocationOfBlocks();
 							break;
 						case "t":
-							//InternalAppendSQLiteIndex();
+							IndexCreation();
+
+
 							break;
 						case "ss":
 							SearchForWalletInSQLite(command[1]);
@@ -254,20 +256,7 @@ namespace CSharpChainNetwork
 				timer.Start();
 				for (int i = 0; i < fileLength / blockSize; i++)
 				{
-					if (i == (fileLength / blockSize) * (0.25))
-					{
-						Console.WriteLine("25% is done");
-					}
-					else if (i == (fileLength / blockSize) * (0.5))
-					{
-						Console.WriteLine("Half way there, 50% is done");
-					}
-					else if (i == (fileLength / blockSize) * (0.75))
-					{
-						Console.WriteLine("Nearly There,75% is done");
-					}
-					//initialise new block to store transactions
-
+					InternalShowProgress(i,fileLength/blockSize);
 
 					if (i * blockSize < fileLength)
 					{
@@ -299,7 +288,6 @@ namespace CSharpChainNetwork
 			return userTransactions;
 		}
 
-		//Method has no effect, needs to be redone
 		static void InternalAppendSQLiteIndex(Block[] blocks)
         {
 			long fileLength = SimpleBlockchainLength(false);
@@ -382,8 +370,6 @@ namespace CSharpChainNetwork
             {
 				Console.WriteLine("Engine Failure");
             }
-			
-			
         }
 
 		static void InternalReadFromBinaryToConvert(string filepath)
@@ -410,10 +396,35 @@ namespace CSharpChainNetwork
 			readStream.Close();
 		}
 
-        #endregion
+		#endregion
 
-        #region utilities
-        static void ShowIncorrectCommand()
+		#region utilities
+
+		static void InternalShowProgress(int place, long total)
+		{
+			if (place == (total) * (0.25))
+			{
+				Console.WriteLine("25% is done");
+			}
+			else if (place == (total) * (0.5))
+			{
+				Console.WriteLine("Half way there, 50% is done");
+			}
+			else if (place == (total) * (0.75))
+			{
+				Console.WriteLine("Nearly There,75% is done");
+			}
+			else if (place == (total) * (0.9))
+			{
+				Console.WriteLine("So Close, 90% is done");
+			}
+			else if (place == (total) * (0.15))
+			{
+				Console.WriteLine("We've barely started, 15% is done");
+			}
+		}
+
+		static void ShowIncorrectCommand()
 		{
 			Console.WriteLine("Ups! I don't understand...");
 			Console.WriteLine("");
@@ -443,12 +454,100 @@ namespace CSharpChainNetwork
 
         #endregion
 
-		
+        #region indexGeneration
 
-		#endregion
+        static void IndexCreation()
+        {
+			string temp = "10111010111000101010";
+			string answer = string.Join("",toLetters(temp,new List<char>()));
+			Console.WriteLine(temp);
+			answer = RunLengthEncodingOfValues(ConvertAb(RunLengthEncodingOfValues(answer), new List<string>()));
+			Console.WriteLine(answer);
+		}
+
+		static string RunLengthEncodingOfValues(string input)
+        {
+			List<string> toReturn = new List<string>();
+			List<char> temp = new List<char>();
+
+			for(int i = 0; i< input.Length; i++)
+            {
+				if(temp.Count == 0)
+                {
+					temp.Add(input[i]);
+                }else if(input[i] == temp[0])
+                {
+					temp.Add(input[i]);
+                }else
+                {
+					int count = temp.Count;
+					string result = $"{count}{temp[0]}";
+					toReturn.Add(result);
+					temp = new List<char>();
+					temp.Add(input[i]);
+                }	
+            }
+			if(temp.Count > 0)
+            {
+				string result = $"{temp.Count}{temp[0]}";
+				toReturn.Add(result);
+            }
+			return string.Join("",toReturn).Replace("1","");
+        }
+
+		static List<char> toLetters(string index, List<char> toReturn)
+        {
+
+            for (int i = 0; i < index.Length;i++)
+            {
+				switch (index[i])
+				{
+					case '0':
+						toReturn.Add('F');
+						break;
+					case '1':
+						toReturn.Add('T');
+						break;
+					default:
+						return null;
+				}
+			}
+           
+
+			return toReturn;
+        }
+
+		static string ConvertAb(string index, List<string> toReturn)
+        {
+            for (int i = 0;i < index.Length-1; i++)
+            {
+                if (char.IsDigit(index[i]))
+                {
+					toReturn.Add($"{index[i]}{index[i+1]}");
+					i++;
+                }else if (index.Substring(i,2) == "TF")
+                {
+					toReturn.Add("A");
+					i++;
+                }else if (index.Substring(i,2)== "FT")
+                {
+					toReturn.Add("B");
+					i++;
+                }else
+                {
+					toReturn.Add($"{index[i]}");
+                }
+            }
+
+			return string.Join("",toReturn);
+        }
+
+        #endregion
+
+        #endregion
 
 
-		static void WriteFromFixedLengthToBinary(string savePath)
+        static void WriteFromFixedLengthToBinary(string savePath)
 		{
 			//Write from Blockchain to Text
 			InternalWriteToFixedLengthRecord(savePath);
@@ -556,6 +655,8 @@ namespace CSharpChainNetwork
 			timer.Stop();
 		}
 
+		
+
 		static void GetLocationOfBlocks()
 		{
 			Stopwatch timer = new Stopwatch();
@@ -573,29 +674,9 @@ namespace CSharpChainNetwork
 				blockData = blockData.Substring(85, 12129);
 				string[] result = utilities.GetUsersForIndex(blockData);
 				Console.WriteLine($"Progress: {i}/{fileLength/blockSize}");
-				#region progressBar
-				if (i == (fileLength / blockSize) * (0.25))
-				{
-					Console.WriteLine("25% is done");
-				}
-				else if (i == (fileLength / blockSize) * (0.5))
-				{
-					Console.WriteLine("Half way there, 50% is done");
-				}
-				else if (i == (fileLength / blockSize) * (0.75))
-				{
-					Console.WriteLine("Nearly There,75% is done");
-				}
-				else if (i == (fileLength / blockSize) * (0.9))
-				{
-					Console.WriteLine("So Close, 90% is done");
-				}
-				else if (i == (fileLength / blockSize) * (0.15))
-				{
-					Console.WriteLine("We've barely started, 15% is done");
-				}
-                #endregion
-              
+				
+				InternalShowProgress(i,fileLength/blockSize);
+
 				foreach (string user in result)
 				{
 					if (user != "SYSTEM")
@@ -704,28 +785,8 @@ namespace CSharpChainNetwork
 				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 				blockData = blockData.Substring(85, 12129);
 				List<string> result = utilities.PartialGetUserCountFromText(blockData);
-				#region progressBar
-				if (i == (fileLength / blockSize) * (0.25))
-				{
-					Console.WriteLine("25% is done");
-				}
-				else if (i == (fileLength / blockSize) * (0.5))
-				{
-					Console.WriteLine("Half way there, 50% is done");
-				}
-				else if (i == (fileLength / blockSize) * (0.75))
-				{
-					Console.WriteLine("Nearly There,75% is done");
-				}
-				else if (i == (fileLength / blockSize) * (0.9))
-				{
-					Console.WriteLine("So Close, 90% is done");
-				}
-				else if (i == (fileLength / blockSize) * (0.15))
-				{
-					Console.WriteLine("We've barely started, 15% is done");
-				}
-				#endregion
+
+				InternalShowProgress(i,fileLength/blockSize);
 				
 				foreach(string user in result)
                 {
