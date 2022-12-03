@@ -463,9 +463,6 @@ namespace CSharpChainNetwork
 			Console.WriteLine(temp);
 			answer = RunLengthEncodingOfValues(ConvertAb(RunLengthEncodingOfValues(answer), new List<string>()));
 			Console.WriteLine(answer);
-			
-			Console.WriteLine(DecodeRunLengthRemoveNumbers(answer));
-			Console.WriteLine(DecodeRuneLengthRemoveAB(DecodeRunLengthRemoveNumbers(answer)));
 			Console.WriteLine(InverseToLetters(DecodeRuneLengthRemoveAB(DecodeRunLengthRemoveNumbers(answer))));
 		}
 
@@ -513,7 +510,7 @@ namespace CSharpChainNetwork
 						toReturn.Add('T');
 						break;
 					default:
-						return null;
+						break;
 				}
 			}
            
