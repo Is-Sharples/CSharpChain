@@ -463,6 +463,10 @@ namespace CSharpChainNetwork
 			Console.WriteLine(temp);
 			answer = RunLengthEncodingOfValues(ConvertAb(RunLengthEncodingOfValues(answer), new List<string>()));
 			Console.WriteLine(answer);
+			
+			Console.WriteLine(DecodeRunLengthRemoveNumbers(answer));
+			Console.WriteLine(DecodeRuneLengthRemoveAB(DecodeRunLengthRemoveNumbers(answer)));
+			Console.WriteLine(InverseToLetters(DecodeRuneLengthRemoveAB(DecodeRunLengthRemoveNumbers(answer))));
 		}
 
 		static string RunLengthEncodingOfValues(string input)
@@ -517,14 +521,42 @@ namespace CSharpChainNetwork
 			return toReturn;
         }
 
+		static string InverseToLetters(string index)
+        {
+			List<char> toReturn = new List<char>();
+            for (int i = 0; i < index.Length; i++)
+            {
+				char current = index[i];
+                switch (current)
+                {
+					case 'T':
+						toReturn.Add('1') ;
+						break;
+					case 'F':
+						toReturn.Add('0');
+						break;
+					default:
+						break;
+                }
+            }
+
+			return string.Join("",toReturn);
+        }
+
 		static string ConvertAb(string index, List<string> toReturn)
         {
+			List<char> digits = new List<char>();
             for (int i = 0;i < index.Length-1; i++)
             {
                 if (char.IsDigit(index[i]))
                 {
-					toReturn.Add($"{index[i]}{index[i+1]}");
-					i++;
+					digits.Add(index[i]);
+					
+                }else if (!char.IsDigit(index[i]) && digits.Count > 0)
+                {
+					string num = string.Join("",digits);
+					toReturn.Add($"{num}{index[i]}");
+					digits = new List<char>();
                 }else if (index.Substring(i,2) == "TF")
                 {
 					toReturn.Add("A");
@@ -541,6 +573,54 @@ namespace CSharpChainNetwork
 
 			return string.Join("",toReturn);
         }
+
+		static string DecodeRunLengthRemoveNumbers(string index) {
+			List<string> toReturn = new List<string>();
+			List<char> digits = new List<char>();
+			for (int i =0; i < index.Length; i++)
+            {
+				char current = index[i];
+                if (char.IsDigit(current))
+                {
+					digits.Add(current);
+                }else if (!char.IsDigit(current) && digits.Count > 0)
+                {
+					string num = string.Join("",digits);
+					int number = int.Parse(num);
+                    for (int j = 0; j < number; j++) {
+						toReturn.Add($"{current}");
+					}
+					digits = new List<char>();
+                }else
+                {
+					toReturn.Add(current.ToString());
+                }
+            }
+			
+			return string.Join("",toReturn);
+		}
+
+		static string DecodeRuneLengthRemoveAB(string index)
+        {
+			List<string> toReturn = new List<string>();
+            for (int i = 0; i < index.Length; i++)
+            {
+				char current = index[i];
+                if (current == 'A')
+                {
+					toReturn.Add("TF");
+                }else if (current == 'B')
+                {
+					toReturn.Add("FT");
+                }else
+                {
+					toReturn.Add(current.ToString());
+                }
+            }
+
+			return string.Join("",toReturn);
+        }
+
 
         #endregion
 
