@@ -122,23 +122,27 @@ namespace CSharpChainModel
 			return users;
 		}
 
-		public List<User> GetUsersForIndex(Block block)
+		public Dictionary<string,char> GetUsersForIndex(Block block, User[] masterUsers)
         {
-			string recieved = "";
-			string sent = "";
+			Dictionary<string, char> result = new Dictionary<string, char>();
 			HashSet<string> tempList = new HashSet<string>();
-			List<User> users = new List<User>();
             foreach (Transaction trans in block.Transactions)
             {
 				tempList.Add(trans.ReceiverAddress);
 				tempList.Add(trans.SenderAddress);
             }
-			foreach(string user in tempList)
+			foreach(User user in masterUsers)
             {
-				users.Add(new User(user));
+                if (tempList.Contains(user.name))
+                {
+					result.Add(user.name,'1');
+                }else
+                {
+					result.Add(user.name,'0');
+                }
             }
 			
-			return users;
+			return result;
 		}
 
 		public Dictionary<string,char> GetUsersForIndex(string text, User[] masterUsers)

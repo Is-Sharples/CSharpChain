@@ -173,7 +173,7 @@ namespace CSharpChainNetwork
 							GetLocationOfBlocks();
 							break;
 						case "t":
-							InternalIndexCreation("10111010111000101010");
+							Console.WriteLine(InternalIndexCreation("00000000"));		
 							break;
 						case "ss":
 							SearchForWalletInSQLite(command[1]);
@@ -292,56 +292,34 @@ namespace CSharpChainNetwork
 			fileLength -= blocks.Length;
 			Stopwatch timer = new Stopwatch();
 			User[] users = masterUsers;
-			Transaction utilities = new Transaction();
-			Stream stream = File.Open(master, FileMode.Open);
-			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
+			Transaction utilities = new Transaction();	
 			SQLiteController sql = new SQLiteController(database);
 
 			timer.Start();
 			foreach (User user in users)
 			{
-				StreamWriter writer = new StreamWriter($"C:/temp/SQLite/AppendFiles/{user.name}.txt");
-				writer.WriteLine(sql.ReadDataForAppending("location", "users", $"WHERE wallet='{user.name}'", false));
-				writer.Close();
+				user.locationCSV = sql.ReadDataForAppending("location", "users", $"WHERE wallet='{user.name}'", false);
+				user.locationCSV = InternalDecodeIndex(user.locationCSV);
+				Console.WriteLine($"{user.name}:"+user.locationCSV);
 			}
 			
 			for(int i = 0; i < blocks.Length;i++)
             {
-				List<User> result = utilities.GetUsersForIndex(blocks[i]);
+				Dictionary<string,char> result = utilities.GetUsersForIndex(blocks[i],users);
 				Console.WriteLine($"Progress: {i+1}/{blocks.Length}");
-				foreach (User user in result)
+				foreach (KeyValuePair<string,char> user in result)
 				{
-					if (user.name != "SYSTEM" && user.name != "System2")
+					if (user.Key != "SYSTEM" && user.Key != "System2")
 					{
-						StreamReader tempReader = new StreamReader($"C:/temp/SQLite/AppendFiles/{user.name}.txt");
-						string temp = tempReader.ReadToEnd().Trim();
-						tempReader.Close();
-						StreamWriter writer = new StreamWriter($"C:/temp/SQLite/AppendFiles/{user.name}.txt", append: true);
-						if(temp != "")
-                        {
-							writer.Write($",{fileLength + i}");
-							
-						}else
-                        {
-							writer.Write($"{fileLength + i}");
-                        }
-						writer.Close();
+						int location = int.Parse(user.Key)-3000;
+						
 					}
 				}
-			}
-
-			foreach (User user in users)
-			{
-				StreamReader tempReader = new StreamReader($"C:/temp/SQLite/AppendFiles/{user.name}.txt");
-				string temp = tempReader.ReadToEnd().Trim();
-				sql.CustomCommand($"UPDATE users SET location = '{temp}' WHERE wallet='{user.name}'");
 			}
 
 			Console.WriteLine($"Time Taken for sql{timer.Elapsed.ToString()}");
 			timer.Stop();
 			sql.CloseConnection();
-			stream.Close();
-			binReader.Close();
 		}
 
         #endregion
@@ -456,42 +434,114 @@ namespace CSharpChainNetwork
 
         static string InternalIndexCreation(string input)
         {
-			
 			string answer = string.Join("",InternalToLetters(input,new List<char>()));
-			
-			return InternalRunLengthEncodingOfValues(InternalConvertAb(InternalRunLengthEncodingOfValues(answer), new List<string>()));
-			//Console.WriteLine(answer);
-			//Console.WriteLine(InternalInverseToLetters(InternalDecodeRuneLengthRemoveAB(InternalDecodeRunLengthRemoveNumbers(answer))));
+			answer = InternalConvertAb(InternalRunLengthEncodingOfValues(answer), new List<string>());
+			answer = InternalRunLengthEncodingOfAB(answer);
+			return answer;
+		}
+
+		static string InternalDecodeIndex(string index)
+        {
+			string temp = InternalInverseToLetters(InternalDecodeRuneLengthRemoveAB(InternalDecodeRunLengthRemoveNumbers(index)));
+			return temp;
 		}
 
 		static string InternalRunLengthEncodingOfValues(string input)
         {
 			List<string> toReturn = new List<string>();
 			List<char> temp = new List<char>();
-
 			for(int i = 0; i< input.Length; i++)
             {
-				if(temp.Count == 0)
-                {
+				if (temp.Count == 0)
+				{
 					temp.Add(input[i]);
-                }else if(input[i] == temp[0])
-                {
+				} else if (input[i] == temp[0])
+				{
 					temp.Add(input[i]);
-                }else
-                {
+				} else
+				{
 					int count = temp.Count;
-					string result = $"{count}{temp[0]}";
+					string result;
+					if (count != 1)
+					{
+						result = $"{count}{temp[0]}";
+					} else
+					{
+						result = $"{temp[0]}";
+					}
 					toReturn.Add(result);
 					temp = new List<char>();
 					temp.Add(input[i]);
-                }	
+				}	
+            }
+
+			if(temp.Count > 0)
+            {
+				string result;
+				if (temp.Count != 1)
+                {
+					result = $"{temp.Count}{temp[0]}";
+				}else
+                {
+					result = $"{temp[0]}";
+                }
+				toReturn.Add(result);
+            }
+			
+			return string.Join("",toReturn);
+        }
+
+		static string InternalRunLengthEncodingOfAB(string input)
+        {
+			List<string> toReturn = new List<string>();
+			List<char> digits = new List<char>();
+			List<char> temp = new List<char>();
+			
+            for (int i = 0; i < input.Length; i++)
+            {
+				char current = input[i];
+                if (current == 'A' || current == 'B')
+                {
+					temp.Add(current);
+                }
+                else
+                {
+					if (temp.Count > 0)
+					{
+						if (current != temp[0])
+						{
+							if (temp.Count != 1)
+							{
+								int num = temp.Count;
+								toReturn.Add($"{num}{temp[0]}");
+							}
+							else
+							{
+								toReturn.Add($"{temp[0]}");
+							}
+							toReturn.Add(current.ToString());
+							temp = new List<char>();
+						}
+					}else
+                    {
+						toReturn.Add(current.ToString());
+                    }
+
+				}
             }
 			if(temp.Count > 0)
             {
-				string result = $"{temp.Count}{temp[0]}";
-				toReturn.Add(result);
+				if(temp.Count != 1)
+                {
+					int num = temp.Count;
+					toReturn.Add($"{num}{temp[0]}");
+                }else
+                {
+					toReturn.Add($"{temp[0]}");
+                }
             }
-			return string.Join("",toReturn).Replace("1","");
+
+			return string.Join("",toReturn);
         }
 
 		static List<char> InternalToLetters(string index, List<char> toReturn)
@@ -511,7 +561,6 @@ namespace CSharpChainNetwork
 						break;
 				}
 			}
-           
 
 			return toReturn;
         }
@@ -549,6 +598,7 @@ namespace CSharpChainNetwork
 					
                 }else if (!char.IsDigit(index[i]) && digits.Count > 0)
                 {
+					
 					string num = string.Join("",digits);
 					toReturn.Add($"{num}{index[i]}");
 					digits = new List<char>();
@@ -556,7 +606,7 @@ namespace CSharpChainNetwork
                 {
 					toReturn.Add("A");
 					i++;
-                }else if (index.Substring(i,2)== "FT")
+                }else if (index.Substring(i,2) == "FT")
                 {
 					toReturn.Add("B");
 					i++;
@@ -566,6 +616,12 @@ namespace CSharpChainNetwork
                 }
             }
 
+            if (digits.Count > 0)
+            {
+				string num = string.Join("",digits);
+				toReturn.Add($"{num}{index[index.Length-1]}");
+				digits = new List<char>();
+            }
 			return string.Join("",toReturn);
         }
 
@@ -616,11 +672,11 @@ namespace CSharpChainNetwork
 			return string.Join("",toReturn);
         }
 
-
         #endregion
 
         #endregion
 
+        #region CreatedCommands
 
         static void WriteFromFixedLengthToBinary(string savePath)
 		{
@@ -725,7 +781,7 @@ namespace CSharpChainNetwork
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();
 			Console.WriteLine("Updating SQLite...");
-			//InternalAppendSQLiteIndex(newBlocks.ToArray());
+			InternalAppendSQLiteIndex(newBlocks.ToArray());
 			Console.WriteLine("Finished!!");
 			timer.Stop();
 		}
@@ -764,8 +820,12 @@ namespace CSharpChainNetwork
 			}
 			foreach(User user in users)
             {
+				Console.WriteLine("Location String: "+ user.locationString.Count);
 				user.locationCSV = string.Join("",user.locationString);
+				user.locationString = new List<string>();
+				Console.WriteLine("Input Into Index Creation"+user.locationCSV);
 				user.locationCSV = InternalIndexCreation(user.locationCSV);
+				Console.WriteLine("Output from Index Creation"+ user.locationCSV);
             }
 
 			foreach (User user in users)
@@ -776,6 +836,7 @@ namespace CSharpChainNetwork
 			timer.Stop();
 			readStream.Close();
 			binReader.Close();
+			
 		}
 		static void SearchTransactionsByNode(string key, string showAll)
 		{
@@ -952,8 +1013,10 @@ namespace CSharpChainNetwork
 			reader.Close();
         }
 
-		#region Blockchain Commands
-		static Block CommandBlockchainMine(string RewardAddress)
+        #endregion 
+
+        #region Blockchain Commands
+        static Block CommandBlockchainMine(string RewardAddress)
 		{
 			Console.WriteLine($"  Mining new block... Difficulty {blockchainServices.Blockchain.Difficulty}.");
 			Block temp = blockchainServices.MineBlock(RewardAddress);
