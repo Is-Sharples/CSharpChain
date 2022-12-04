@@ -141,11 +141,11 @@ namespace CSharpChainModel
 			return users;
 		}
 
-		public string[] GetUsersForIndex(string text)
+		public Dictionary<string,char> GetUsersForIndex(string text, User[] masterUsers)
 		{
 			string recieved = "";
 			string sent = "";
-			
+			Dictionary<string, char> result = new Dictionary<string, char>();
 			HashSet<string> tempList = new HashSet<string>();
 			while (text.Contains("+"))
 			{
@@ -157,9 +157,21 @@ namespace CSharpChainModel
 				text = text.Substring(text.IndexOf("%") + 1);
 			}
 
+            foreach (User item in masterUsers)
+            {
+                if (tempList.Contains(item.name))
+                {
+					result.Add(item.name,'1');
+                }else
+                {
+					result.Add(item.name,'0');
+                }
+            }
+
 			string[] users = new string[tempList.Count];
 			tempList.CopyTo(users);
-			return users;
+
+			return result;
 		}
 
 	}

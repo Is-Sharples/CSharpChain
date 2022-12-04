@@ -173,9 +173,7 @@ namespace CSharpChainNetwork
 							GetLocationOfBlocks();
 							break;
 						case "t":
-							IndexCreation();
-
-
+							InternalIndexCreation("10111010111000101010");
 							break;
 						case "ss":
 							SearchForWalletInSQLite(command[1]);
@@ -277,7 +275,7 @@ namespace CSharpChainNetwork
 					}
 				}
 
-				Console.WriteLine("Tiem Taken:"+timer.Elapsed.ToString());
+				Console.WriteLine("Time Taken:"+timer.Elapsed.ToString());
 				timer.Stop();
 			}else
             {
@@ -456,17 +454,17 @@ namespace CSharpChainNetwork
 
         #region indexGeneration
 
-        static void IndexCreation()
+        static string InternalIndexCreation(string input)
         {
-			string temp = "10111010111000101010";
-			string answer = string.Join("",toLetters(temp,new List<char>()));
-			Console.WriteLine(temp);
-			answer = RunLengthEncodingOfValues(ConvertAb(RunLengthEncodingOfValues(answer), new List<string>()));
-			Console.WriteLine(answer);
-			Console.WriteLine(InverseToLetters(DecodeRuneLengthRemoveAB(DecodeRunLengthRemoveNumbers(answer))));
+			
+			string answer = string.Join("",InternalToLetters(input,new List<char>()));
+			
+			return InternalRunLengthEncodingOfValues(InternalConvertAb(InternalRunLengthEncodingOfValues(answer), new List<string>()));
+			//Console.WriteLine(answer);
+			//Console.WriteLine(InternalInverseToLetters(InternalDecodeRuneLengthRemoveAB(InternalDecodeRunLengthRemoveNumbers(answer))));
 		}
 
-		static string RunLengthEncodingOfValues(string input)
+		static string InternalRunLengthEncodingOfValues(string input)
         {
 			List<string> toReturn = new List<string>();
 			List<char> temp = new List<char>();
@@ -496,7 +494,7 @@ namespace CSharpChainNetwork
 			return string.Join("",toReturn).Replace("1","");
         }
 
-		static List<char> toLetters(string index, List<char> toReturn)
+		static List<char> InternalToLetters(string index, List<char> toReturn)
         {
 
             for (int i = 0; i < index.Length;i++)
@@ -518,7 +516,7 @@ namespace CSharpChainNetwork
 			return toReturn;
         }
 
-		static string InverseToLetters(string index)
+		static string InternalInverseToLetters(string index)
         {
 			List<char> toReturn = new List<char>();
             for (int i = 0; i < index.Length; i++)
@@ -540,7 +538,7 @@ namespace CSharpChainNetwork
 			return string.Join("",toReturn);
         }
 
-		static string ConvertAb(string index, List<string> toReturn)
+		static string InternalConvertAb(string index, List<string> toReturn)
         {
 			List<char> digits = new List<char>();
             for (int i = 0;i < index.Length-1; i++)
@@ -571,7 +569,7 @@ namespace CSharpChainNetwork
 			return string.Join("",toReturn);
         }
 
-		static string DecodeRunLengthRemoveNumbers(string index) {
+		static string InternalDecodeRunLengthRemoveNumbers(string index) {
 			List<string> toReturn = new List<string>();
 			List<char> digits = new List<char>();
 			for (int i =0; i < index.Length; i++)
@@ -597,7 +595,7 @@ namespace CSharpChainNetwork
 			return string.Join("",toReturn);
 		}
 
-		static string DecodeRuneLengthRemoveAB(string index)
+		static string InternalDecodeRuneLengthRemoveAB(string index)
         {
 			List<string> toReturn = new List<string>();
             for (int i = 0; i < index.Length; i++)
@@ -727,12 +725,10 @@ namespace CSharpChainNetwork
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();
 			Console.WriteLine("Updating SQLite...");
-			InternalAppendSQLiteIndex(newBlocks.ToArray());
+			//InternalAppendSQLiteIndex(newBlocks.ToArray());
 			Console.WriteLine("Finished!!");
 			timer.Stop();
 		}
-
-		
 
 		static void GetLocationOfBlocks()
 		{
@@ -749,34 +745,27 @@ namespace CSharpChainNetwork
 				readStream.Seek(i * blockSize, SeekOrigin.Begin);
 				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 				blockData = blockData.Substring(85, 12129);
-				string[] result = utilities.GetUsersForIndex(blockData);
+				Dictionary<string, char> result = utilities.GetUsersForIndex(blockData,users);
 				Console.WriteLine($"Progress: {i}/{fileLength/blockSize}");
 				
 				InternalShowProgress(i,fileLength/blockSize);
 
-				foreach (string user in result)
+				foreach (KeyValuePair<string,char> user in result)
 				{
-					if (user != "SYSTEM")
+					if (user.Key != "SYSTEM")
 					{
-						if (user != "System2")
+						if (user.Key != "System2")
 						{
-							int num = int.Parse(user) - 3000;
-							users[num].transactionCount++;
-							if (users[num].locationString.Count == 0)
-							{
-								users[num].locationString.Add($"{i}");
-							}
-							else
-							{
-								users[num].locationString.Add($"{i}");
-							}
+							int location = int.Parse(user.Key)-3000;
+							users[location].locationString.Add(user.Value.ToString());
 						}
 					}
 				}
 			}
 			foreach(User user in users)
             {
-				user.locationCSV = string.Join(",",user.locationString);
+				user.locationCSV = string.Join("",user.locationString);
+				user.locationCSV = InternalIndexCreation(user.locationCSV);
             }
 
 			foreach (User user in users)
