@@ -173,7 +173,7 @@ namespace CSharpChainNetwork
 							GetLocationOfBlocks();
 							break;
 						case "t":
-							Console.WriteLine(InternalIndexCreation("00000000"));		
+							Console.WriteLine(InternalIndexCreation("00000000110"));		
 							break;
 						case "ss":
 							SearchForWalletInSQLite(command[1]);
@@ -487,7 +487,6 @@ namespace CSharpChainNetwork
                 }
 				toReturn.Add(result);
             }
-			
 			return string.Join("",toReturn);
         }
 
@@ -496,7 +495,7 @@ namespace CSharpChainNetwork
 			List<string> toReturn = new List<string>();
 			List<char> digits = new List<char>();
 			List<char> temp = new List<char>();
-			
+			Console.WriteLine(input);
             for (int i = 0; i < input.Length; i++)
             {
 				char current = input[i];
@@ -590,7 +589,8 @@ namespace CSharpChainNetwork
 		static string InternalConvertAb(string index, List<string> toReturn)
         {
 			List<char> digits = new List<char>();
-            for (int i = 0;i < index.Length-1; i++)
+			Console.WriteLine(index);
+			for (int i = 0;i < index.Length; i++)
             {
                 if (char.IsDigit(index[i]))
                 {
@@ -602,11 +602,11 @@ namespace CSharpChainNetwork
 					string num = string.Join("",digits);
 					toReturn.Add($"{num}{index[i]}");
 					digits = new List<char>();
-                }else if (index.Substring(i,2) == "TF")
+                }else if (i <index.Length -1 &&  index.Substring(i,2) == "TF")
                 {
 					toReturn.Add("A");
 					i++;
-                }else if (index.Substring(i,2) == "FT")
+                }else if (i < index.Length -1 && index.Substring(i,2) == "FT")
                 {
 					toReturn.Add("B");
 					i++;
@@ -615,7 +615,7 @@ namespace CSharpChainNetwork
 					toReturn.Add($"{index[i]}");
                 }
             }
-
+			
             if (digits.Count > 0)
             {
 				string num = string.Join("",digits);
