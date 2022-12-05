@@ -287,12 +287,10 @@ namespace CSharpChainNetwork
 		}
 
 		static void InternalAppendSQLiteIndex(Block[] blocks)
-        {
-			long fileLength = SimpleBlockchainLength(false);
-			fileLength -= blocks.Length;
+		{
 			Stopwatch timer = new Stopwatch();
 			User[] users = masterUsers;
-			Transaction utilities = new Transaction();	
+			Transaction utilities = new Transaction();
 			SQLiteController sql = new SQLiteController(database);
 
 			timer.Start();
@@ -302,22 +300,33 @@ namespace CSharpChainNetwork
 				user.locationCSV = InternalDecodeIndex(user.locationCSV);
 				Console.WriteLine($"{user.name}:"+user.locationCSV);
 			}
-			
-			for(int i = 0; i < blocks.Length;i++)
-            {
-				Dictionary<string,char> result = utilities.GetUsersForIndex(blocks[i],users);
-				Console.WriteLine($"Progress: {i+1}/{blocks.Length}");
-				foreach (KeyValuePair<string,char> user in result)
+
+			for (int i = 0; i < blocks.Length; i++)
+			{
+				Dictionary<string, char> result = utilities.GetUsersForIndex(blocks[i], users);
+				Console.WriteLine($"Progress: {i + 1}/{blocks.Length}");
+				foreach (KeyValuePair<string, char> user in result)
 				{
 					if (user.Key != "SYSTEM" && user.Key != "System2")
 					{
-						int location = int.Parse(user.Key)-3000;
-						
+						int location = int.Parse(user.Key) - 3000;
+						users[location].locationString.Add(user.Value.ToString());
+
 					}
 				}
 			}
+			//remember to clear locationCSV
+			foreach (User user in users) 
+			{
+				user.locationCSV += string.Join("",user.locationString);
+				string temp = InternalIndexCreation(user.locationCSV);
+				sql.CustomCommand($"UPDATE users SET location = '{temp}' WHERE wallet='{user.name}'");
+				user.locationCSV = "";
+				user.locationString = new List<string>();
+			}
 
-			Console.WriteLine($"Time Taken for sql{timer.Elapsed.ToString()}");
+
+			Console.WriteLine($"Time Taken for sql{timer.Elapsed}");
 			timer.Stop();
 			sql.CloseConnection();
 		}
@@ -493,9 +502,7 @@ namespace CSharpChainNetwork
 		static string InternalRunLengthEncodingOfAB(string input)
         {
 			List<string> toReturn = new List<string>();
-			List<char> digits = new List<char>();
 			List<char> temp = new List<char>();
-			Console.WriteLine(input);
             for (int i = 0; i < input.Length; i++)
             {
 				char current = input[i];
@@ -589,7 +596,6 @@ namespace CSharpChainNetwork
 		static string InternalConvertAb(string index, List<string> toReturn)
         {
 			List<char> digits = new List<char>();
-			Console.WriteLine(index);
 			for (int i = 0;i < index.Length; i++)
             {
                 if (char.IsDigit(index[i]))
@@ -739,14 +745,6 @@ namespace CSharpChainNetwork
             {
 				InternalSetupWeights();
 			}
-			long fileLengthInBlocks = 0;
-
-			if (File.Exists(master))
-            {
-				StreamReader stream = new StreamReader(master);
-				fileLengthInBlocks = (stream.BaseStream.Length) / blockSize;
-				stream.Close();
-			}
 			
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
@@ -818,18 +816,13 @@ namespace CSharpChainNetwork
 					}
 				}
 			}
+
 			foreach(User user in users)
             {
-				Console.WriteLine("Location String: "+ user.locationString.Count);
+				
 				user.locationCSV = string.Join("",user.locationString);
-				user.locationString = new List<string>();
-				Console.WriteLine("Input Into Index Creation"+user.locationCSV);
+				user.locationString = new List<string>();	
 				user.locationCSV = InternalIndexCreation(user.locationCSV);
-				Console.WriteLine("Output from Index Creation"+ user.locationCSV);
-            }
-
-			foreach (User user in users)
-			{
 				sql.InsertData("users", $"(wallet, location) VALUES('{user.name}', '{user.locationCSV}')");
 			}
 			Console.WriteLine("Time Passed:" + timer.Elapsed.ToString());
