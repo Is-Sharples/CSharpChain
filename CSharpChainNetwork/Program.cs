@@ -173,7 +173,14 @@ namespace CSharpChainNetwork
 							GetLocationOfBlocks();
 							break;
 						case "t":
-							Console.WriteLine(InternalIndexCreation("00000000110"));		
+							string temp = InternalIndexCreation("00010101011101010100000110");
+							Console.WriteLine(temp);
+							temp = InternalDecodeIndex(temp);
+							Console.WriteLine(temp);
+							temp = string.Join("",InternalToLetters(temp,new List<char>()));
+							Console.WriteLine(temp);
+							temp = InternalRunLengthEncodingOfValues(temp);
+							Console.WriteLine(temp);
 							break;
 						case "ss":
 							SearchForWalletInSQLite(command[1]);
@@ -298,7 +305,7 @@ namespace CSharpChainNetwork
 			{
 				user.locationCSV = sql.ReadDataForAppending("location", "users", $"WHERE wallet='{user.name}'", false);
 				user.locationCSV = InternalDecodeIndex(user.locationCSV);
-				Console.WriteLine($"{user.name}:"+user.locationCSV);
+				//Console.WriteLine($"{user.name}:"+user.locationCSV);
 			}
 
 			for (int i = 0; i < blocks.Length; i++)
@@ -660,7 +667,7 @@ namespace CSharpChainNetwork
 		static string InternalDecodeRuneLengthRemoveAB(string index)
         {
 			List<string> toReturn = new List<string>();
-            for (int i = 0; i < index.Length; i++)
+			for (int i = 0; i < index.Length; i++)
             {
 				char current = index[i];
                 if (current == 'A')
@@ -674,7 +681,6 @@ namespace CSharpChainNetwork
 					toReturn.Add(current.ToString());
                 }
             }
-
 			return string.Join("",toReturn);
         }
 
@@ -835,7 +841,7 @@ namespace CSharpChainNetwork
 		{
 			StreamWriter writer = new StreamWriter($"C:/temp/BlockList/{key}.csv");
 			Stopwatch timer = new Stopwatch();
-			
+			decimal amount = 0;
 			
 			if (key == "-")
 			{
@@ -877,7 +883,14 @@ namespace CSharpChainNetwork
 							showLine();
                         }
                     }
-
+                    foreach (UserTransaction trans in result)
+                    {
+                        if (trans.ReceiverAddress == key || trans.SenderAddress == key)
+                        {
+							amount += trans.Amount;
+                        }
+                    }
+					Console.WriteLine($"Balance for {key}: {amount}");
 					Console.WriteLine($"Transactions for {key} found in No of Blocks: " + count);
 					Console.WriteLine($"Transactions for {key}:"+result.Count);
 					//Console.WriteLine($"Time Taken for Searching for {key}:" + timer.Elapsed.ToString());
@@ -982,18 +995,106 @@ namespace CSharpChainNetwork
             }
 		}
 
-		static void SearchForWalletInSQLite(string key)
+		static void InternalParseBlockLocations(string[] locations, string key)
+        {
+			Stream stream = File.Open(master,FileMode.Open);
+			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
+			long fileLength = binReader.BaseStream.Length;
+			List<Block> blocks = new List<Block>();
+			Transaction utils = new Transaction();
+			List<Transaction> Transactions = new List<Transaction>();
+			int blockNum = 0;
+			for (int i = 0; i < locations.Length; i++)
+			{
+				//Console.WriteLine($"Location string: {locations[i]}");
+				//Console.WriteLine($"Progress: {i}/{locations.Length}");
+				string current = locations[i].Trim();
+				//Console.WriteLine($"Location String trimmed: {current}");
+				if (current == "F")
+				{	
+					blockNum++;
+				} else if (current == "T")
+				{ 
+					stream.Seek(blockNum * blockSize,SeekOrigin.Begin);
+					string temp = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
+					temp = temp.Substring(85, 12129);
+					List<Transaction> res = utils.SearchForTransactionsFromIndex(temp,key);
+					Transactions.AddRange(res);
+					blockNum++;
+				} else if (current.Any(char.IsDigit) && current.Contains('F'))
+                {
+					int num = int.Parse(current.Replace("F",""));
+					blockNum += num;					
+                } else if (current.Any(char.IsDigit) && current.Contains('T'))
+                {
+					int num = int.Parse(current.Replace("T", ""));
+					int temp = blockNum;
+					for (int j = blockNum; j < temp + num; j++)
+					{
+						stream.Seek(blockNum * blockSize, SeekOrigin.Begin);
+						string stringResult = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
+						stringResult = stringResult.Substring(85,12129);
+						List<Transaction> result = utils.SearchForTransactionsFromIndex(stringResult,key);
+						Transactions.AddRange(result);
+						blockNum++;					
+					}		
+				}
+            }
+			decimal amount = 0;
+			int count = 0;
+            foreach (Transaction trans in Transactions)
+            {
+				//count++;
+				//Console.WriteLine($"{count}/{Transactions.Count}");
+				amount += trans.Amount;
+                
+            }
+
+			Console.WriteLine($"Wallet Balance for {key}: {amount}");
+			stream.Close();
+			binReader.Close();
+        }
+
+		static string[] SearchForWalletInSQLite(string key)
         {
 			Stopwatch timer = new Stopwatch();
 			SQLiteController sql = new SQLiteController(database);
-			StreamReader reader = new StreamReader(sql.ReadData("users", "location", false, $"WHERE wallet='{key}'"));
-			
 			timer.Start();
-			string temp = reader.ReadToEnd();
-			if(!(temp.Trim() == ""))
+			StreamReader reader = new StreamReader(sql.ReadData("users", "location", false, $"WHERE wallet='{key}'"));
+			List<string> locations = new List<string>();
+			List<char> digits = new List<char>();
+			
+			string result = reader.ReadToEnd();
+			result = InternalDecodeIndex(result);
+			result = InternalRunLengthEncodingOfValues(string.Join("",InternalToLetters(result, new List<char>())));
+
+
+			bool found = result.Contains('T');
+			//Console.WriteLine(result.Trim());
+			Console.WriteLine($"Started Searching for: {key}");
+			if (found)
             {
-				string[] result = temp.Split(',');
-				Console.WriteLine(result.Length);
+                for(int i=0; i < result.Length; i++)
+                {
+					char current = result[i];
+                    if (char.IsDigit(current))
+                    {
+						digits.Add(current);
+						
+                    }else if (!char.IsDigit(current) && digits.Count > 0)
+                    {
+						int num = int.Parse(string.Join("",digits));
+						locations.Add($"{num}{current}");
+						digits = new List<char>();
+					}else 
+                    {
+						if(current.ToString().Trim() != "")
+                        {
+							locations.Add(current.ToString());
+						}
+                    }
+					//found = result.Contains('T');
+                }
 			}else
             {
 				showLine();
@@ -1001,9 +1102,12 @@ namespace CSharpChainNetwork
             }
 			
 			
-			Console.WriteLine("Time Taken:"+timer.Elapsed.ToString());
-			timer.Stop();
 			reader.Close();
+			InternalParseBlockLocations(locations.ToArray(), key);
+			Console.WriteLine("Time Taken:" + timer.Elapsed.ToString());
+			timer.Stop();
+
+			return locations.ToArray();
         }
 
         #endregion 
