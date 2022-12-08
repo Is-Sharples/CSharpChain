@@ -173,14 +173,15 @@ namespace CSharpChainNetwork
 							GetLocationOfBlocks();
 							break;
 						case "t":
-							string temp = InternalIndexCreation("00010101011101010100000110");
+							IWeightedRandomizer<string> amountRandomizer = new DynamicWeightedRandomizer<string>();
+							amountRandomizer.Add("+", 6);
+							amountRandomizer.Add("-", 4);
+							int amount = 500;
+							string temp = amount.ToString();
+							temp = amountRandomizer.NextWithReplacement() + temp;
 							Console.WriteLine(temp);
-							temp = InternalDecodeIndex(temp);
-							Console.WriteLine(temp);
-							temp = string.Join("",InternalToLetters(temp,new List<char>()));
-							Console.WriteLine(temp);
-							temp = InternalRunLengthEncodingOfValues(temp);
-							Console.WriteLine(temp);
+							decimal test = decimal.Parse(temp);
+							Console.WriteLine(test);
 							break;
 						case "ss":
 							SearchForWalletInSQLite(command[1]);
@@ -305,7 +306,7 @@ namespace CSharpChainNetwork
 			{
 				user.locationCSV = sql.ReadDataForAppending("location", "users", $"WHERE wallet='{user.name}'", false);
 				user.locationCSV = InternalDecodeIndex(user.locationCSV);
-				//Console.WriteLine($"{user.name}:"+user.locationCSV);
+				
 			}
 
 			for (int i = 0; i < blocks.Length; i++)
@@ -758,10 +759,16 @@ namespace CSharpChainNetwork
 			int blockNo = blocks;
 			Random rnd = new Random();
 			List<Block> newBlocks = new List<Block>();
+			IWeightedRandomizer<string> amountRandomizer = new DynamicWeightedRandomizer<string>();
+			amountRandomizer.Add("+", 6);
+			amountRandomizer.Add("-", 4);
 			//Creating Transactions
 			for (int i = 0; i < transNo * blockNo; i++)
 			{
-				int amount = rnd.Next(1, 1000);
+				string[] amountValue = new string[2];
+				amountValue[0] = amountRandomizer.NextWithReplacement();
+				amountValue[1] = rnd.Next(1, 1000).ToString();
+				string tempAmount = string.Join("",amountValue);
 				//randomizer object comes from Weighted Randomizer sol
 				//used for weighted randomisation 
 				//Look at "Block Generation" subsection
@@ -772,7 +779,7 @@ namespace CSharpChainNetwork
 				{
 					receiver = randomizer.NextWithReplacement();
 				}
-				CommandTransactionsAdd(sender, receiver.ToString(), amount.ToString(), i.ToString());
+				CommandTransactionsAdd(sender, receiver.ToString(), tempAmount, i.ToString());
 
 				if ((i % transNo) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
 				{
@@ -799,6 +806,7 @@ namespace CSharpChainNetwork
 			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
 			SQLiteController sql = new SQLiteController("C:/temp/SQLite/blockchain");
+
 			Console.WriteLine("Started Getting all locations of all users");
 			for (int i = 0; i < fileLength / blockSize; i++)
 			{
