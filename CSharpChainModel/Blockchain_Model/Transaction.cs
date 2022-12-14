@@ -157,6 +157,18 @@ namespace CSharpChainModel
 			return users;
 		}
 
+		public HashSet<string> GetUsersForPointerIndex(Block block)
+        {
+			HashSet<string> users = new HashSet<string>();
+			foreach (Transaction trans in block.Transactions)
+			{
+				users.Add(trans.ReceiverAddress);
+				users.Add(trans.SenderAddress);
+			}
+
+			return users;
+		}
+
 		public Dictionary<string,char> GetUsersForIndex(Block block, User[] masterUsers)
         {
 			Dictionary<string, char> result = new Dictionary<string, char>();
