@@ -1,5 +1,6 @@
 ﻿using CSharpChainModel;
 using CSharpChainNetwork.SQL_Class;
+using CSharpChainNetwork.PointerIndex;
 using CSharpChainServer;
 using Microsoft.Owin.Hosting;
 using Newtonsoft.Json;
@@ -19,7 +20,7 @@ namespace CSharpChainNetwork
 {
 	static class Program
 	{
-		static string pointerPath = "C:/temp/PointerSystem/";
+		
 		static string database = "C:/temp/SQLite/blockchain";
 		static string master = "C:/temp/Master.dat";
 		static string baseAddress;
@@ -65,7 +66,7 @@ namespace CSharpChainNetwork
 					masterUsers[i] = new User($"{temp}");
                 }
 				ShowCommandLine();
-                
+				
 				do
 				{
 					ShowCommandLine();
@@ -174,7 +175,16 @@ namespace CSharpChainNetwork
 							GetLocationOfBlocks();
 							break;
 						case "t":
-							
+							HashSet<string> users = new HashSet<string>();
+							users.Add("4000");
+							users.Add("3999");
+							PointerForIndex test = new PointerForIndex();
+							Dictionary<string, string> res = test.CreatePointerIndexFile(222,users);
+                            if (res != null)
+                            {
+								HashSet<long> positionsToEdit = test.PreparePositionsForEditBlockIndexFile(res, 222);
+								test.EditBlockIndexFile(positionsToEdit,12345);
+							}
 							break;
 						case "ss":
 							SearchForWalletInSQLite(command[1]);
@@ -735,114 +745,6 @@ namespace CSharpChainNetwork
 
         #endregion
 
-        #region PointerIndexGeneration
-		
-		static void CreateLastSeen(long blockNum,Block block)
-        {
-			Transaction util = new Transaction();
-			string pathV1 = $"{pointerPath}/lastSeenV1.txt";
-			string pathV2 = $"{pointerPath}/LastSeenV2.txt";
-			Stream streamV2;
-			Stream streamV1;
-			bool fileWasEmpty = false;
-			HashSet<string> users;
-			HashSet<string> appearedUsers = new HashSet<string>();
-			users = util.GetUsersForPointerIndex(block);
-            
-			if(!File.Exists(pathV1) && !File.Exists(pathV2))
-            {
-				streamV1 = new FileStream(pathV1,FileMode.Create);
-				StreamWriter writer = new StreamWriter(streamV1);
-                foreach (string user in users)
-                {
-					writer.WriteLine($"{user}-{blockNum}");
-                }
-				fileWasEmpty = true;
-				writer.Close();
-            }
-
-			if (!File.Exists(pathV1) && !fileWasEmpty)
-            {
-				streamV1 = new FileStream(pathV1,FileMode.Create);
-				streamV2 = new FileStream(pathV2,FileMode.Open,FileAccess.Read);
-            }
-			else
-            {
-				streamV2 = new FileStream(pathV2,FileMode.Create);
-				streamV1 = new FileStream(pathV1,FileMode.Open,FileAccess.Read);
-            }
-			
-
-            if (streamV1.CanRead && !streamV1.CanWrite)
-            {
-				StreamReader reader = new StreamReader(streamV1);
-				StreamWriter writer = new StreamWriter(streamV2);
-				while (reader.Peek() > -1)
-				{
-					string line = reader.ReadLine();
-					string wallet = line.Substring(0, line.IndexOf('-'));
-					if (users.Contains(wallet) && !appearedUsers.Contains(wallet))
-					{
-						writer.WriteLine($"{wallet}-{blockNum}");
-						appearedUsers.Add(wallet);
-					}
-					else
-					{
-						writer.WriteLine(line);
-					}
-				}
-				reader.Close();
-				string[] temp = users.Except(appearedUsers).ToArray();
-
-				if (temp.Length > 0)
-				{
-					foreach (string user in temp)
-					{
-						writer.WriteLine($"{user}-{blockNum}");
-					}
-				}
-				writer.Close();
-				File.Delete(pathV1);
-			}
-			else
-            {
-				StreamReader reader = new StreamReader(streamV2);
-				StreamWriter writer = new StreamWriter(streamV1);
-
-				while (reader.Peek() > -1)
-				{
-					string line = reader.ReadLine();
-					string wallet = line.Substring(0, line.IndexOf('-'));
-					if (users.Contains(wallet) && !appearedUsers.Contains(wallet))
-					{
-						writer.WriteLine($"{wallet}-{blockNum}");
-						appearedUsers.Add(wallet);
-					}
-					else
-					{
-						writer.WriteLine(line);
-					}
-				}
-				reader.Close();
-				string[] temp = users.Except(appearedUsers).ToArray();
-
-				if (temp.Length > 0)
-				{
-					foreach (string user in temp)
-                    {
-						writer.WriteLine($"{user}-{blockNum}");
-					}
-				}
-
-				writer.Close();
-				File.Delete(pathV2);
-
-            }
-
-        }
-
-        #endregion
-
         #endregion
 
         #region CreatedCommands
@@ -996,8 +898,8 @@ namespace CSharpChainNetwork
             {
 				BlockLength = SimpleBlockchainLength(false);
 			}
-
-			
+			PointerForIndex indexUtil = new PointerForIndex();
+			Transaction util = new Transaction();
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
 			int transNo = 512;
@@ -1029,13 +931,29 @@ namespace CSharpChainNetwork
 				if ((i % transNo) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
 				{
 					Block tempBlock = CommandBlockchainMine("System2");
+					HashSet<string> users = util.GetUsersForPointerIndex(tempBlock);
 					newBlocks.Add(tempBlock);
-					CreateLastSeen(BlockLength++,tempBlock);
+					Dictionary<string, string> result = indexUtil.CreatePointerIndexFile(BlockLength++,users);
+                    if (result != null)
+                    {
+						HashSet<long> positionsToBeEdit = indexUtil.PreparePositionsForEditBlockIndexFile(result, BlockLength);
+						Dictionary<long,long> positions2 = indexUtil.EditBlockIndexFile(positionsToBeEdit,BlockLength-1);
+						indexUtil.OverWritePointerIndexBlockList(positions2);
+					}
+
 				}
 			}
 			Block block = CommandBlockchainMine("System2");
 			newBlocks.Add(block);
-			CreateLastSeen(BlockLength++,block);
+			HashSet<string> tempUsers = util.GetUsersForPointerIndex(block);
+			//indexUtil.CreateLastSeen(BlockLength++,tempUsers);
+			Dictionary<string, string> result2 = indexUtil.CreatePointerIndexFile(BlockLength++,tempUsers);
+            if (result2 != null)
+            {
+				HashSet<long> positionsToEdit = indexUtil.PreparePositionsForEditBlockIndexFile(result2,BlockLength);
+				Dictionary<long,long> positions = indexUtil.EditBlockIndexFile(positionsToEdit,BlockLength-1);
+				indexUtil.OverWritePointerIndexBlockList(positions);
+			}
 			WriteFromFixedLengthToBinary("temp");
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();

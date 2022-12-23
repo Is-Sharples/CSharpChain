@@ -162,8 +162,18 @@ namespace CSharpChainModel
 			HashSet<string> users = new HashSet<string>();
 			foreach (Transaction trans in block.Transactions)
 			{
-				users.Add(trans.ReceiverAddress);
-				users.Add(trans.SenderAddress);
+                if (trans.ReceiverAddress == "System2" || trans.ReceiverAddress == "SYSTEM")
+                {
+
+                }else if (trans.SenderAddress == "System2" || trans.SenderAddress == "SYSTEM")
+                {
+
+                }else
+                {
+					users.Add(trans.ReceiverAddress);
+					users.Add(trans.SenderAddress);
+				}
+				
 			}
 
 			return users;
