@@ -126,9 +126,12 @@ namespace CSharpChainNetwork.PointerIndex
 				{
 					string line = reader.ReadLine();
 					string tempPointer = line.Substring(line.IndexOf('-') + 1);
-					if (tempPointer.All(char.IsDigit))
+					tempPointer = tempPointer.Substring(0,tempPointer.IndexOf('+'));
+					string tempLoc = line.Substring(line.IndexOf('+')+1);
+
+					if (tempPointer.All(char.IsDigit) && tempLoc.All(char.IsDigit))
 					{
-						temp = int.Parse(tempPointer);
+						temp = int.Parse(tempLoc);
 						pointer = temp;
 					}
 				}
@@ -138,7 +141,7 @@ namespace CSharpChainNetwork.PointerIndex
 			
 			Stream streamV1 = new FileStream(pathV1, FileMode.Append);
 			StreamWriter writer = new StreamWriter(streamV1);
-			writer.WriteLine($"{blockNum}-{pointer+location}");
+			writer.WriteLine($"{blockNum}-{pointer}+{location}");
 			writer.Close();
 			streamV1.Close();
 		}
@@ -152,6 +155,7 @@ namespace CSharpChainNetwork.PointerIndex
 			string path = $"{pointerPath}/BlockList1.txt";
 			Stream stream = File.Create(path);
 			StreamWriter writer = new StreamWriter(stream);
+			long prevPosition = 0;
 
             if (File.Exists(pathV1))
             {
@@ -167,7 +171,8 @@ namespace CSharpChainNetwork.PointerIndex
 				byte temp = reader.ReadByte();
                 if (Convert.ToChar(temp) == '%')
                 {
-					writer.WriteLine($"{count}-{reader.BaseStream.Position}");
+					writer.WriteLine($"{count}-{prevPosition}+{reader.BaseStream.Position}");
+					prevPosition = reader.BaseStream.Position;
 					count++;
                 }
             }
@@ -295,14 +300,14 @@ namespace CSharpChainNetwork.PointerIndex
 			Stream stream = File.OpenRead($"{pointerPath}/BlockList1.txt");
 			StreamReader reader = new StreamReader(stream,Encoding.ASCII);
 			string temp = "";
-			for (int i = 1; i < location;i++)
+			for (int i = 0; i < location;i++)
             {
 				temp = reader.ReadLine();
             }
             
-			string smallPointer = temp.Substring(temp.IndexOf("-")+1);
-			temp = reader.ReadLine();
-			string largePointer = temp.Substring(temp.IndexOf("-")+1);
+			temp = temp.Substring(temp.IndexOf("-")+1);
+			string largePointer = temp.Substring(temp.IndexOf('+')+1);
+			string smallPointer = temp.Substring(0,temp.IndexOf("+"));
 			stream.Close();
 			reader.Close();
 			int min = 0;
