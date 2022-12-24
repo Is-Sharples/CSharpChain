@@ -175,16 +175,7 @@ namespace CSharpChainNetwork
 							GetLocationOfBlocks();
 							break;
 						case "t":
-							HashSet<string> users = new HashSet<string>();
-							users.Add("4000");
-							users.Add("3999");
-							PointerForIndex test = new PointerForIndex();
-							Dictionary<string, string> res = test.CreatePointerIndexFile(222,users);
-                            if (res != null)
-                            {
-								HashSet<long> positionsToEdit = test.PreparePositionsForEditBlockIndexFile(res, 222);
-								test.EditBlockIndexFile(positionsToEdit,12345);
-							}
+							
 							break;
 						case "ss":
 							SearchForWalletInSQLite(command[1]);
@@ -193,9 +184,9 @@ namespace CSharpChainNetwork
 						case "script":
 							Stopwatch timer = new Stopwatch();
 							timer.Start();
-                            for (int i = 0; i < 5; i++)
+                            for (int i = 0; i < 50; i++)
                             {
-								GenerateBlocks(10000);
+								GenerateBlocks(1);
 								Console.WriteLine($"finished loop:{i}");
 							}
 							Console.WriteLine("Time Taken for 50000 blocks" + timer.Elapsed.ToString());
@@ -910,6 +901,9 @@ namespace CSharpChainNetwork
 			amountRandomizer.Add("+", 6);
 			amountRandomizer.Add("-", 4);
 			//Creating Transactions
+			HashSet<string> tempUsers;
+			Block block;
+			Dictionary<string, int> foundUserLocs;
 			for (int i = 0; i < transNo * blockNo; i++)
 			{
 				string[] amountValue = new string[2];
@@ -930,30 +924,24 @@ namespace CSharpChainNetwork
 
 				if ((i % transNo) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
 				{
-					Block tempBlock = CommandBlockchainMine("System2");
-					HashSet<string> users = util.GetUsersForPointerIndex(tempBlock);
-					newBlocks.Add(tempBlock);
-					Dictionary<string, string> result = indexUtil.CreatePointerIndexFile(BlockLength++,users);
-                    if (result != null)
-                    {
-						HashSet<long> positionsToBeEdit = indexUtil.PreparePositionsForEditBlockIndexFile(result, BlockLength);
-						Dictionary<long,long> positions2 = indexUtil.EditBlockIndexFile(positionsToBeEdit,BlockLength-1);
-						indexUtil.OverWritePointerIndexBlockList(positions2);
-					}
-
+					block = CommandBlockchainMine("System2");
+					newBlocks.Add(block);
+					tempUsers = util.GetUsersForPointerIndex(block);
+					indexUtil.CreatePointerIndexFilesForNewSystem(tempUsers, BlockLength);
+					foundUserLocs = indexUtil.CreateDictionaryForUpdating(tempUsers);
+					indexUtil.GoToTextFilesByDictionary(foundUserLocs, BlockLength);
+					indexUtil.CreateLastSeen(BlockLength, tempUsers);
+					BlockLength++;
 				}
 			}
-			Block block = CommandBlockchainMine("System2");
+			block = CommandBlockchainMine("System2");
 			newBlocks.Add(block);
-			HashSet<string> tempUsers = util.GetUsersForPointerIndex(block);
-			//indexUtil.CreateLastSeen(BlockLength++,tempUsers);
-			Dictionary<string, string> result2 = indexUtil.CreatePointerIndexFile(BlockLength++,tempUsers);
-            if (result2 != null)
-            {
-				HashSet<long> positionsToEdit = indexUtil.PreparePositionsForEditBlockIndexFile(result2,BlockLength);
-				Dictionary<long,long> positions = indexUtil.EditBlockIndexFile(positionsToEdit,BlockLength-1);
-				indexUtil.OverWritePointerIndexBlockList(positions);
-			}
+			tempUsers = util.GetUsersForPointerIndex(block);
+			indexUtil.CreatePointerIndexFilesForNewSystem(tempUsers, BlockLength);
+			foundUserLocs = indexUtil.CreateDictionaryForUpdating(tempUsers);
+			indexUtil.GoToTextFilesByDictionary(foundUserLocs,BlockLength);
+			indexUtil.CreateLastSeen(BlockLength, tempUsers);
+			
 			WriteFromFixedLengthToBinary("temp");
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();
