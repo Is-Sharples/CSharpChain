@@ -10,7 +10,6 @@ namespace CSharpChainNetwork.PointerIndex
 {
     public class PointerForIndex
     {
-
 		string pointerPath = "C:/temp/PointerSystem/";
 		public void CreateLastSeen(long blockNum, HashSet<string> users)
 		{
@@ -177,22 +176,99 @@ namespace CSharpChainNetwork.PointerIndex
 
 		public void GoToTextFilesByDictionary(Dictionary<string,int> foundLocations, long blockNum)
         {
-			StreamWriter writer;
+			
 			string pathStub = $"{pointerPath}/IndexFiles/";
+			HashSet<int> locations = new HashSet<int>();
+			List<string> wallets = new List<string>();
+			List<string> appeared = new List<string>();
             foreach (KeyValuePair<string,int> kvp in foundLocations)
             {
-				string path = $"{pathStub}{kvp.Value}.txt";
-				string temp = File.ReadAllText(path);
-				int pos = temp.IndexOf(kvp.Key);
-				pos += kvp.Key.Length + 1;
-				StringBuilder builder = new StringBuilder(temp);
-				builder.Insert(pos,blockNum);
-				writer = new StreamWriter(File.Create(path),Encoding.ASCII);
-				writer.Write(builder.ToString());
-				writer.Close();
+				locations.Add(kvp.Value);
+				wallets.Add(kvp.Key);
             }
 
-			
+
+
+			Console.WriteLine("Count:"+locations.Count);
+			Console.WriteLine("Wallets:"+wallets.Count);
+            foreach (int loc in locations)
+            {
+				string path = $"{pathStub}{loc}.txt";
+				string temp = File.ReadAllText(path);
+				StringBuilder builder = new StringBuilder(temp);
+				int pos = 0;
+                foreach (string wallet in wallets)
+                {
+					pos = builder.ToString().IndexOf(wallet);
+                    if (builder.Length > pos+wallet.Length+1)
+                    {
+						if (builder.ToString()[pos + wallet.Length] == '-' && pos != -1)
+						{
+							if (builder.ToString()[pos + wallet.Length + 1] == '_')
+							{
+								pos += wallet.Length + 1;
+								builder.Insert(pos, blockNum);
+								appeared.Add(wallet);
+							}
+
+						}
+					}
+                    
+                    
+				}
+				wallets = wallets.Except(appeared).ToList();
+				File.WriteAllText(path,builder.ToString());
+				
+            }	
 		}
+
+		public List<int> SearchByPointer(string wallet,long blockNum)
+		{
+			bool breaker = true;
+			string pathStub = $"{pointerPath}/IndexFiles/";
+			int loc = 0;
+			List<int> locations = new List<int>();
+            for (int i = 1; i < blockNum;i++)
+            {
+				string temp = File.ReadAllText($"{pathStub}{i}.txt");
+                if (temp.Contains(wallet))
+                {
+					loc = i;
+					break;
+                }
+            }
+            if (loc > 0)
+            {
+				locations.Add(loc);
+			}
+
+            if (locations.Count == 0)
+            {
+				return locations;
+            }
+            while (breaker)
+            {
+				string blockData = File.ReadAllText($"{pathStub}{loc}.txt");
+				int location = blockData.IndexOf(wallet);
+                
+				string fraction = blockData.Substring(blockData.IndexOf(wallet));
+				fraction = fraction.Substring(0, fraction.IndexOf('_'));
+				string nextBlock = fraction.Substring(fraction.IndexOf('-') + 1);
+				if (nextBlock.All(char.IsDigit) && nextBlock != "")
+				{
+					loc = int.Parse(nextBlock);
+					locations.Add(loc);
+				}
+				else
+				{
+					breaker = false;
+				}
+				
+				
+				
+            }
+
+			return locations;
+        }
 	}
 }

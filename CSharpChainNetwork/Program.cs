@@ -174,8 +174,9 @@ namespace CSharpChainNetwork
 							GenerateSQLLite(true);
 							GetLocationOfBlocks();
 							break;
-						case "t":
-							
+						case "ps":
+							SearchForWalletUsingPointerIndex(command[1]);
+
 							break;
 						case "ss":
 							SearchForWalletInSQLite(command[1]);
@@ -184,9 +185,9 @@ namespace CSharpChainNetwork
 						case "script":
 							Stopwatch timer = new Stopwatch();
 							timer.Start();
-                            for (int i = 0; i < 50; i++)
+                            for (int i = 0; i < int.Parse(command[1]); i++)
                             {
-								GenerateBlocks(1);
+								GenerateBlocks(10000);
 								Console.WriteLine($"finished loop:{i}");
 							}
 							Console.WriteLine("Time Taken for 50000 blocks" + timer.Elapsed.ToString());
@@ -196,6 +197,13 @@ namespace CSharpChainNetwork
 							break;
 						case "cls":
 							Console.Clear();
+							break;
+
+						case "t":
+                            for (int i = 3000; i < 5000; i++)
+                            {
+								SearchForWalletUsingPointerIndex(i.ToString());
+							}
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -368,7 +376,6 @@ namespace CSharpChainNetwork
 					{
 						int location = int.Parse(user.Key) - 3000;
 						users[location].locationString.Add(user.Value.ToString());
-
 					}
 				}
 			}
@@ -941,7 +948,7 @@ namespace CSharpChainNetwork
 			foundUserLocs = indexUtil.CreateDictionaryForUpdating(tempUsers);
 			indexUtil.GoToTextFilesByDictionary(foundUserLocs,BlockLength);
 			indexUtil.CreateLastSeen(BlockLength, tempUsers);
-			
+
 			WriteFromFixedLengthToBinary("temp");
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();
@@ -1146,6 +1153,50 @@ namespace CSharpChainNetwork
 			return locations.ToArray();
 		}
 
+		static void SearchForWalletUsingPointerIndex(string key)
+        {
+			PointerForIndex util = new PointerForIndex();
+			List<int> locations = util.SearchByPointer(key,SimpleBlockchainLength(false));
+			decimal amount = InternalSearchBlockLocationsForPointerIndex(locations,key);
+			Console.WriteLine($"Amount For {key}:{amount}");
+
+
+		}
+
+		static decimal InternalSearchBlockLocationsForPointerIndex(List<int> locations, string key)
+        {
+			Stream stream = File.OpenRead(master);
+			BinaryReader reader = new BinaryReader(stream,Encoding.ASCII);
+			Transaction utils = new Transaction();
+			List<Transaction> transactions = new List<Transaction>();
+
+			foreach (int loc in locations)
+			{
+				Console.WriteLine("Location:" + loc);
+			}
+
+			foreach (int loc in locations)
+            {
+				stream.Seek(loc * blockSize,SeekOrigin.Begin);
+				string blockData = Encoding.ASCII.GetString(reader.ReadBytes(blockSize));
+				blockData = blockData.Substring(85, 12129);
+				List<Transaction> result = utils.SearchForTransactionsFromIndex(blockData, key);
+				transactions.AddRange(result);
+			}
+            
+			decimal amount = 0;
+            foreach (Transaction trans in transactions)
+            {
+				amount += trans.Amount;
+            }
+
+			reader.Close();
+			stream.Close();
+
+			return amount;
+        }
+
+
 		#endregion
 
 		#endregion
@@ -1293,7 +1344,7 @@ namespace CSharpChainNetwork
 		}
 
 		#endregion
-
+		
 		#region NetworkSend
 
 		static async void NetworkRegister(string NewNodeUrl)
