@@ -19,7 +19,6 @@ namespace CSharpChainNetwork.PointerIndex
 			Stream streamV1;
 			bool fileWasEmpty = false;
 			HashSet<string> appearedUsers = new HashSet<string>();
-
 			if (!File.Exists(pathV1) && !File.Exists(pathV2))
 			{
 				streamV1 = new FileStream(pathV1, FileMode.Create);
@@ -116,6 +115,8 @@ namespace CSharpChainNetwork.PointerIndex
 			Stream stream;
 			string pathV1 = $"{pointerPath}/LastSeenV1.txt";
 			string pathV2 = $"{pointerPath}/LastSeenV2.txt";
+
+			wallet = $"{wallet}-";
             if (File.Exists(pathV1))
             {
 				stream = File.Open(pathV1,FileMode.Open);
@@ -151,7 +152,7 @@ namespace CSharpChainNetwork.PointerIndex
 			StreamWriter writer = new StreamWriter(stream,Encoding.ASCII);
             foreach (string user in users)
             {
-				writer.Write($"{user}-_");
+				writer.Write($"_{user}-%");
             }
 			writer.Close();
 			stream.Close();
@@ -161,6 +162,7 @@ namespace CSharpChainNetwork.PointerIndex
 		public Dictionary<string,int> CreateDictionaryForUpdating(HashSet<string> users)
         {
 			Dictionary<string, int> foundLocations = new Dictionary<string, int>();
+
             foreach (string user in users)
             {
 				string stringLoc = GetLocationFromLastSeen(user);
@@ -176,7 +178,6 @@ namespace CSharpChainNetwork.PointerIndex
 
 		public void GoToTextFilesByDictionary(Dictionary<string,int> foundLocations, long blockNum)
         {
-			
 			string pathStub = $"{pointerPath}/IndexFiles/";
 			HashSet<int> locations = new HashSet<int>();
 			List<string> wallets = new List<string>();
@@ -184,13 +185,9 @@ namespace CSharpChainNetwork.PointerIndex
             foreach (KeyValuePair<string,int> kvp in foundLocations)
             {
 				locations.Add(kvp.Value);
-				wallets.Add(kvp.Key);
+				wallets.Add($"_{kvp.Key}-%");
             }
 
-
-
-			Console.WriteLine("Count:"+locations.Count);
-			Console.WriteLine("Wallets:"+wallets.Count);
             foreach (int loc in locations)
             {
 				string path = $"{pathStub}{loc}.txt";
@@ -200,30 +197,33 @@ namespace CSharpChainNetwork.PointerIndex
                 foreach (string wallet in wallets)
                 {
 					pos = builder.ToString().IndexOf(wallet);
-                    if (builder.Length > pos+wallet.Length+1)
+					
+                    if (builder.Length >= pos+wallet.Length)
                     {
-						if (builder.ToString()[pos + wallet.Length] == '-' && pos != -1)
+						if (pos != -1)
 						{
-							if (builder.ToString()[pos + wallet.Length + 1] == '_')
+							char temper = builder.ToString()[pos + wallet.Length-1];
+							string testTemp = builder.ToString().Substring(pos);
+							if (temper == '%')
 							{
-								pos += wallet.Length + 1;
+								pos += wallet.Length-1;
 								builder.Insert(pos, blockNum);
 								appeared.Add(wallet);
 							}
-
-						}
-					}
-                    
-                    
+                        }
+					}else
+                    {
+						Console.WriteLine("ERROR!!");
+                    } 
 				}
 				wallets = wallets.Except(appeared).ToList();
 				File.WriteAllText(path,builder.ToString());
-				
             }	
 		}
 
 		public List<int> SearchByPointer(string wallet,long blockNum)
 		{
+			wallet = $"_{wallet}";
 			bool breaker = true;
 			string pathStub = $"{pointerPath}/IndexFiles/";
 			int loc = 0;
@@ -249,10 +249,9 @@ namespace CSharpChainNetwork.PointerIndex
             while (breaker)
             {
 				string blockData = File.ReadAllText($"{pathStub}{loc}.txt");
-				int location = blockData.IndexOf(wallet);
-                
+				int location = blockData.IndexOf(wallet); 
 				string fraction = blockData.Substring(blockData.IndexOf(wallet));
-				fraction = fraction.Substring(0, fraction.IndexOf('_'));
+				fraction = fraction.Substring(1, fraction.Substring(1).IndexOf('%'));
 				string nextBlock = fraction.Substring(fraction.IndexOf('-') + 1);
 				if (nextBlock.All(char.IsDigit) && nextBlock != "")
 				{
@@ -263,9 +262,6 @@ namespace CSharpChainNetwork.PointerIndex
 				{
 					breaker = false;
 				}
-				
-				
-				
             }
 
 			return locations;
