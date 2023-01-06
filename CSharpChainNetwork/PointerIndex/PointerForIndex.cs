@@ -110,6 +110,29 @@ namespace CSharpChainNetwork.PointerIndex
 			}
 		}
 
+		public void CreateFirstSeen(long blockNum, HashSet<string> users)
+        {
+			string path = $"{pointerPath}/FirstSeen.txt";
+			string file = "";
+			if (File.Exists(path))
+			{
+				file = File.ReadAllText(path);
+			}
+			Stream stream = File.Open(path,FileMode.Append);
+			
+			StreamWriter writer = new StreamWriter(stream,Encoding.ASCII);
+            foreach (string user in users)
+            {
+				if (!file.Contains(user)) {
+					writer.WriteLine($"{user}-{blockNum}");
+				}
+			}
+
+			writer.Close();
+			stream.Close();
+	
+		}
+
 		public string GetLocationFromLastSeen(string wallet)
         {
 			Stream stream;
@@ -170,7 +193,6 @@ namespace CSharpChainNetwork.PointerIndex
                 {
 					int location = int.Parse(stringLoc);
 					foundLocations.Add(user,location);
-
                 }
 			}
 			return foundLocations;

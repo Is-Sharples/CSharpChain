@@ -948,6 +948,7 @@ namespace CSharpChainNetwork
 					foundUserLocs = indexUtil.CreateDictionaryForUpdating(tempUsers);
 					indexUtil.GoToTextFilesByDictionary(foundUserLocs, BlockLength);
 					indexUtil.CreateLastSeen(BlockLength, tempUsers);
+					indexUtil.CreateFirstSeen(BlockLength,tempUsers);
 					BlockLength++;
 				}
 			}
@@ -958,6 +959,7 @@ namespace CSharpChainNetwork
 			foundUserLocs = indexUtil.CreateDictionaryForUpdating(tempUsers);
 			indexUtil.GoToTextFilesByDictionary(foundUserLocs,BlockLength);
 			indexUtil.CreateLastSeen(BlockLength, tempUsers);
+			indexUtil.CreateFirstSeen(BlockLength,tempUsers);
 
 			WriteFromFixedLengthToBinary("temp");
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
