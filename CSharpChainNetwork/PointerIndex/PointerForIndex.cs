@@ -170,12 +170,14 @@ namespace CSharpChainNetwork.PointerIndex
 
 		public void CreatePointerIndexFilesForNewSystem(HashSet<string> users, long blockNum)
         {
-			string path = $"{pointerPath}/IndexFiles/{blockNum}.txt";
+			string path = $"{pointerPath}/IndexFiles/{blockNum}.dat";
+			List<string> userString = users.ToList<string>();
+			userString.Sort();
 			Stream stream = File.Create(path);
-			StreamWriter writer = new StreamWriter(stream,Encoding.ASCII);
-            foreach (string user in users)
+			BinaryWriter writer = new BinaryWriter(stream,Encoding.ASCII);
+            foreach (string user in userString)
             {
-				writer.Write($"_{user}-%");
+				writer.Write(Encoding.ASCII.GetBytes($"_{user}-%"));
             }
 			writer.Close();
 			stream.Close();
@@ -212,9 +214,15 @@ namespace CSharpChainNetwork.PointerIndex
 
             foreach (int loc in locations)
             {
-				string path = $"{pathStub}{loc}.txt";
-				string temp = File.ReadAllText(path);
-				StringBuilder builder = new StringBuilder(temp);
+				string path = $"{pathStub}{loc}.dat";
+				Stream stream = File.Open(path,FileMode.OpenOrCreate);
+				BinaryReader reader = new BinaryReader(stream,Encoding.ASCII);
+				StringBuilder builder = new StringBuilder();
+				FileInfo fi = new FileInfo(path);
+				string temp = fi.Length.ToString();
+				builder.Append(Encoding.ASCII.GetString(reader.ReadBytes(int.Parse(temp))));
+				reader.Close();
+				stream.Close();
 				int pos = 0;
                 foreach (string wallet in wallets)
                 {
@@ -239,25 +247,60 @@ namespace CSharpChainNetwork.PointerIndex
                     } 
 				}
 				wallets = wallets.Except(appeared).ToList();
-				File.WriteAllText(path,builder.ToString());
+				stream = File.OpenWrite(path);
+				BinaryWriter writer = new BinaryWriter(stream);
+				writer.Write(Encoding.ASCII.GetBytes(builder.ToString()));
+				
+				writer.Close();
+				stream.Close();
             }	
 		}
 
-		public List<int> SearchByPointer(string wallet,long blockNum)
+		public List<int> SearchByPointer(string wallet)
 		{
-			wallet = $"_{wallet}";
+			int loc = 0;
+			int walletValue = int.Parse(wallet);
 			bool breaker = true;
 			string pathStub = $"{pointerPath}/IndexFiles/";
-			int loc = 0;
-			List<int> locations = new List<int>();
-            for (int i = 1; i < blockNum;i++)
+			StreamReader firstReader = new StreamReader($"{pointerPath}/FirstSeen.txt");
+			long firstMid = firstReader.BaseStream.Length / 2;
+			firstReader.BaseStream.Seek(firstMid,SeekOrigin.Begin);
+			string firstTemp = firstReader.ReadLine();
+			firstTemp = firstReader.ReadLine();
+			int firstTempValue = int.Parse(firstTemp.Substring(0, 4));
+            if (firstTempValue < walletValue)
             {
-				string temp = File.ReadAllText($"{pathStub}{i}.txt");
-                if (temp.Contains(wallet))
+				bool breaking = true;
+                while (breaking)
                 {
-					loc = i;
-					break;
+					firstTemp = firstReader.ReadLine();
+                    if (firstTemp.Contains(wallet))
+                    {
+						breaking = false;
+                    }
                 }
+            }else if (firstTempValue > walletValue)
+            {
+				firstReader.BaseStream.Seek(0,SeekOrigin.Begin);
+				bool breaking = true;
+				while (breaking)
+				{
+					firstTemp = firstReader.ReadLine();
+					if (firstTemp.Contains(wallet))
+					{
+						breaking = false;
+					}
+				}
+			}
+			else
+            {
+				loc = int.Parse(firstTemp.Substring(firstTemp.IndexOf('-')+1));
+            }
+			wallet = $"_{wallet}";
+			List<int> locations = new List<int>();
+            if (loc == 0)
+            {
+				loc = int.Parse(firstTemp.Substring(firstTemp.IndexOf('-')+1));
             }
             if (loc > 0)
             {
@@ -270,23 +313,195 @@ namespace CSharpChainNetwork.PointerIndex
             }
             while (breaker)
             {
-				string blockData = File.ReadAllText($"{pathStub}{loc}.txt");
-				int location = blockData.IndexOf(wallet); 
-				string fraction = blockData.Substring(blockData.IndexOf(wallet));
-				fraction = fraction.Substring(1, fraction.Substring(1).IndexOf('%'));
-				string nextBlock = fraction.Substring(fraction.IndexOf('-') + 1);
-				if (nextBlock.All(char.IsDigit) && nextBlock != "")
-				{
-					loc = int.Parse(nextBlock);
-					locations.Add(loc);
-				}
-				else
-				{
-					breaker = false;
+				string path = $"{pathStub}{loc}.dat";
+				Stream stream = File.OpenRead(path);
+				BinaryReader reader = new BinaryReader(stream,Encoding.ASCII);
+				long mid = reader.BaseStream.Length / 2;
+				FileInfo fi = new FileInfo(path);
+				reader.BaseStream.Seek(mid,SeekOrigin.Begin);
+				char temper = reader.ReadChar();
+				bool found = false;
+                while (temper != '_')
+                {
+					temper = reader.ReadChar();
+					mid++;
+                }
+				string testWallet = Encoding.ASCII.GetString(reader.ReadBytes(4));
+				string blockData = "";
+				if (walletValue > int.Parse(testWallet))
+                {
+					blockData = Encoding.ASCII.GetString(reader.ReadBytes(int.Parse((fi.Length-mid).ToString())));
+                }else if (walletValue < int.Parse(testWallet))
+                {
+					reader.BaseStream.Seek(0,SeekOrigin.Begin);
+					blockData = Encoding.ASCII.GetString(reader.ReadBytes(int.Parse(mid.ToString())));
+				}else
+                {
+					List<char> vs = new List<char>();
+					temper = reader.ReadChar();
+					
+					while (temper != '%')
+                    {
+                        if (temper != '-')
+                        {
+							vs.Add(temper);
+						}
+						
+						temper = reader.ReadChar();
+                    }
+                    if (vs.Count > 0)
+                    {
+						if (vs.All(char.IsDigit))
+						{
+							loc = int.Parse(string.Join("", vs));
+							locations.Add(loc);
+							found = true;
+						}
+					}else
+                    {
+						found = true;
+						breaker = false;
+                    }
+					
+                }
+                if (!found)
+                {
+					int location = blockData.IndexOf(wallet);
+					string fraction = blockData.Substring(blockData.IndexOf(wallet));
+					fraction = fraction.Substring(1, fraction.Substring(1).IndexOf('%'));
+					string nextBlock = fraction.Substring(fraction.IndexOf('-') + 1);
+					if (nextBlock.All(char.IsDigit) && nextBlock != "")
+					{
+						loc = int.Parse(nextBlock);
+						locations.Add(loc);
+					}
+					else
+					{
+						breaker = false;
+					}
 				}
             }
 
 			return locations;
+        }
+
+		public void SortFirstSeen()
+        {
+
+			string[] allLines = File.ReadAllLines($"{pointerPath}/FirstSeen.txt");
+			List<int> tempLines = new List<int>();
+            foreach (string line in allLines)
+            {
+				tempLines.Add(int.Parse(line.Substring(0, 4)));
+            }
+			tempLines.Sort();
+			List<string> finalLines = new List<string>();
+            foreach (int num in tempLines)
+            {
+                foreach (string line in allLines)
+                {
+					if(num.ToString() == line.Substring(0, 4))
+                    {
+						finalLines.Add(line);
+                    }
+                }
+            }
+			File.WriteAllLines($"{pointerPath}/FirstSeen.txt",finalLines.ToArray());
+        }
+
+		public List<int> ReadFromIndexFile(string key)
+        {
+			bool breakLoop = false;
+			List<int> toReturn = new List<int>();
+			int walletValue = int.Parse(key);
+			string pathStub = $"{pointerPath}/IndexFiles/";
+			string[] firstSeen = File.ReadAllLines($"{pointerPath}/FirstSeen.txt");
+			string firstLocation = firstSeen[int.Parse(key)-3000];
+			firstLocation = firstLocation.Substring(firstLocation.IndexOf('-')+1);
+			int loc = int.Parse(firstLocation);
+			toReturn.Add(loc);
+			while (!breakLoop) {
+				BinaryReader reader = new BinaryReader(File.OpenRead($"{pathStub}{loc}.dat"));
+				reader.BaseStream.Seek(reader.BaseStream.Length / 2, SeekOrigin.Begin);
+				char peek = reader.ReadChar();
+				while (peek != '_')
+				{
+					peek = reader.ReadChar();
+				}
+				int foundWallet = int.Parse(getString(reader.ReadBytes(4)));
+				bool found = false;
+				if (walletValue == foundWallet)
+				{
+					List<char> toParse = new List<char>();
+					peek = reader.ReadChar();
+					while (peek != '%')
+					{
+						peek = reader.ReadChar();
+						if (peek != '%')
+						{
+							toParse.Add(peek);
+						}
+					}
+					if (toParse.Count > 0)
+					{
+						loc = int.Parse(string.Join("", toParse));
+						toReturn.Add(loc);
+						found = true;
+					}
+					else
+					{
+						breakLoop = true;
+					}
+
+				}
+				else if (walletValue < foundWallet)
+				{
+
+					reader.BaseStream.Seek(0, SeekOrigin.Begin);
+				}
+
+				while (!found)
+				{
+					peek = reader.ReadChar();
+					while (peek != '_')
+					{
+						peek = reader.ReadChar();
+					}
+					foundWallet = int.Parse(getString(reader.ReadBytes(4)));
+					if (walletValue == foundWallet)
+					{
+						List<char> toParse = new List<char>();
+						peek = reader.ReadChar();
+						while (peek != '%')
+						{
+							peek = reader.ReadChar();
+							if (peek != '%')
+							{
+								toParse.Add(peek);
+							}
+
+						}
+						if (toParse.All(char.IsDigit) && toParse.Count > 0)
+						{
+							loc = int.Parse(string.Join("", toParse));
+							toReturn.Add(loc);
+						}
+						else
+						{
+							breakLoop = true;
+						}
+						found = true;
+					}
+				}
+				reader.Close();
+			}
+			
+			return toReturn;
+		}
+
+		public string getString(byte [] input)
+        {
+			return Encoding.ASCII.GetString(input);
         }
 	}
 }

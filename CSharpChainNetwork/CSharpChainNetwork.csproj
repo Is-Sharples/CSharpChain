@@ -141,6 +141,7 @@
     <Compile Include="Controllers\TransactionsController.cs" />
     <Compile Include="Controllers\NetworkController.cs" />
     <Compile Include="PointerIndex\PointerForIndex.cs" />
+    <Compile Include="PointerIndex\PointerIndexV2.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SQL_Class\SQLiteController.cs" />

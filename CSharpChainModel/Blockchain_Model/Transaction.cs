@@ -106,6 +106,39 @@ namespace CSharpChainModel
 			return list;
 		}
 
+		public List<Transaction> SearchForTransactionsFromPointerIndex(string text, string key)
+		{
+			string recieved = "";
+			string sent = "";
+			decimal amount = 0;
+			string desc = "";
+
+			List<Transaction> list = new List<Transaction>();
+			/*
+			 * Using arbitrary delimiters the mathematical symbols are used 
+			 * to distinguish the different strings as data types:
+			 * up till - is the receiver of the transaction
+			 * from - to + is the sender 
+			 * from + to * is the description 
+			 * from * to % is the amount
+			 * the % symbol is the end of the transaction
+			*/
+
+			while (text.Contains($"{key}"))
+			{
+				if (text.Substring(0, text.IndexOf("+")).Contains(key))
+				{
+					recieved = text.Substring(0, text.IndexOf("-"));
+					sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);
+					desc = text.Substring(text.IndexOf("+") + 1, text.IndexOf("*") - text.IndexOf("+") - 1);
+					amount = Decimal.Parse(text.Substring(text.IndexOf("*") + 1, text.IndexOf("%") - text.IndexOf("*") - 1));
+					list.Add(new Transaction(sent, recieved, amount, desc));
+				}
+				text = text.Substring(text.IndexOf("%") + 1);
+			}
+			return list;
+		}
+
 
 
 		public UserTransaction ToUserTransaction(int blockNum)

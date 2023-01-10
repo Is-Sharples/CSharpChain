@@ -190,29 +190,21 @@ namespace CSharpChainNetwork
 								GenerateBlocks(10000);
 								Console.WriteLine($"finished loop:{i}");
 							}
-							Console.WriteLine("Time Taken for 50000 blocks" + timer.Elapsed.ToString());
+							Console.WriteLine($"Time Taken for {command[1]} blocks: {timer.Elapsed}");
 							GetFrequencyDistribution();
 
 							Console.WriteLine("Time Taken for 50000 blocks and freq report validity check:"+ timer.Elapsed.ToString());
 							timer.Stop();
 							break;
+						case "runtestfor":
+							RunTimeTestFor(command[1]);
+							break;
 						case "cls":
 							Console.Clear();
 							break;
 
-						case "t":
-							decimal amount1;
-							decimal amount2;
-                            for (int i = 3000; i < 5000; i++)
-                            {
-								amount1 = SearchForWalletUsingPointerIndex(i.ToString());
-								amount2 = SearchForWalletInSQLite(i.ToString());
-                                if (amount1 != amount2)
-                                {
-									Console.WriteLine(i);
-									break;
-                                }
-							}
+						case "runtest":
+							RunTimeTests(command[1]);
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -907,6 +899,7 @@ namespace CSharpChainNetwork
 				BlockLength = SimpleBlockchainLength(false);
 			}
 			PointerForIndex indexUtil = new PointerForIndex();
+			PointerIndexV2 index = new PointerIndexV2();
 			Transaction util = new Transaction();
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
@@ -938,29 +931,35 @@ namespace CSharpChainNetwork
 					receiver = randomizer.NextWithReplacement();
 				}
 				CommandTransactionsAdd(sender, receiver.ToString(), tempAmount, i.ToString());
-
+				
 				if ((i % transNo) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
 				{
 					block = CommandBlockchainMine("System2");
 					newBlocks.Add(block);
 					tempUsers = util.GetUsersForPointerIndex(block);
-					indexUtil.CreatePointerIndexFilesForNewSystem(tempUsers, BlockLength);
-					foundUserLocs = indexUtil.CreateDictionaryForUpdating(tempUsers);
-					indexUtil.GoToTextFilesByDictionary(foundUserLocs, BlockLength);
-					indexUtil.CreateLastSeen(BlockLength, tempUsers);
-					indexUtil.CreateFirstSeen(BlockLength,tempUsers);
+					/*
+						indexUtil.CreatePointerIndexFilesForNewSystem(tempUsers, BlockLength);
+						foundUserLocs = indexUtil.CreateDictionaryForUpdating(tempUsers);
+						indexUtil.GoToTextFilesByDictionary(foundUserLocs, BlockLength);
+						indexUtil.CreateLastSeen(BlockLength, tempUsers);
+						indexUtil.CreateFirstSeen(BlockLength,tempUsers);
+					 */
+
+					index.AppendIndex(tempUsers,BlockLength);
 					BlockLength++;
 				}
 			}
 			block = CommandBlockchainMine("System2");
 			newBlocks.Add(block);
 			tempUsers = util.GetUsersForPointerIndex(block);
+			/*
 			indexUtil.CreatePointerIndexFilesForNewSystem(tempUsers, BlockLength);
 			foundUserLocs = indexUtil.CreateDictionaryForUpdating(tempUsers);
 			indexUtil.GoToTextFilesByDictionary(foundUserLocs,BlockLength);
 			indexUtil.CreateLastSeen(BlockLength, tempUsers);
 			indexUtil.CreateFirstSeen(BlockLength,tempUsers);
-
+			*/
+			index.AppendIndex(tempUsers, BlockLength);
 			WriteFromFixedLengthToBinary("temp");
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();
@@ -968,6 +967,7 @@ namespace CSharpChainNetwork
 			InternalAppendSQLiteIndex(newBlocks.ToArray());
 			Console.WriteLine("Finished!!");
 			timer.Stop();
+			//indexUtil.SortFirstSeen();
 		}
 
 		static void GetFrequencyDistribution()
@@ -1044,7 +1044,7 @@ namespace CSharpChainNetwork
 		#region SearchCommands
 
 
-		static void SearchTransactionsByNode(string key, string showAll)
+		static TimeSpan SearchTransactionsByNode(string key, string showAll)
 		{
 			StreamWriter writer = new StreamWriter($"C:/temp/BlockList/{key}.csv");
 			Stopwatch timer = new Stopwatch();
@@ -1056,7 +1056,7 @@ namespace CSharpChainNetwork
 			}
 			else
 			{
-				//timer.Start();
+				timer.Start();
 				List<UserTransaction> result = InternalSeekTransactionsFromFile(key.Trim());
 				List<int> foundInBlocks = new List<int>();
 				foreach (UserTransaction user in result)
@@ -1100,14 +1100,16 @@ namespace CSharpChainNetwork
 					Console.WriteLine($"Balance for {key}: {amount}");
 					Console.WriteLine($"Transactions for {key} found in No of Blocks: " + count);
 					Console.WriteLine($"Transactions for {key}:" + result.Count);
-					//Console.WriteLine($"Time Taken for Searching for {key}:" + timer.Elapsed.ToString());
+					Console.WriteLine($"Time Taken for Searching for {key}:" + timer.Elapsed.ToString());
 				}
 			}
 			timer.Stop();
 			writer.Close();
+
+			return timer.Elapsed;
 		}
 
-		static decimal SearchForWalletInSQLite(string key)
+		static TimeSpan SearchForWalletInSQLite(string key)
 		{
 			Stopwatch timer = new Stopwatch();
 			SQLiteController sql = new SQLiteController(database);
@@ -1156,24 +1158,30 @@ namespace CSharpChainNetwork
 
 
 			reader.Close();
+			Console.WriteLine($"Time Taken For Finding Locations:{timer.Elapsed}");
 			decimal amount = InternalParseBlockLocations(locations.ToArray(), key);
 			Console.WriteLine("Time Taken:" + timer.Elapsed.ToString());
 			timer.Stop();
 
-			return amount;
+			return timer.Elapsed;
 		}
 
-		static decimal SearchForWalletUsingPointerIndex(string key)
+		static TimeSpan SearchForWalletUsingPointerIndex(string key)
         {
 			Stopwatch timer = new Stopwatch();
-			PointerForIndex util = new PointerForIndex();
+			//PointerForIndex util = new PointerForIndex();
+			PointerIndexV2 util = new PointerIndexV2();
 			timer.Start();
-			List<int> locations = util.SearchByPointer(key,SimpleBlockchainLength(false));
+			List<int> locations = util.ReadIndex(key);
+			//List<int> locations = util.SearchByPointer(key);
+			//List<int> locations = util.ReadFromIndexFile(key);
+			Console.WriteLine($"Started Searching for:{key}");
+			Console.WriteLine($"Time Taken For Finding Locations:{timer.Elapsed}");
 			decimal amount = InternalSearchBlockLocationsForPointerIndex(locations,key);
 			timer.Stop();
 			Console.WriteLine($"Amount For {key}:{amount}");
 			Console.WriteLine($"Time Taken for Pointer Index:{timer.Elapsed}");
-			return amount;
+			return timer.Elapsed;
 		}
 
 		static decimal InternalSearchBlockLocationsForPointerIndex(List<int> locations, string key)
@@ -1185,10 +1193,10 @@ namespace CSharpChainNetwork
 
 			foreach (int loc in locations)
             {
-				stream.Seek(loc  * blockSize,SeekOrigin.Begin);
+				stream.Seek((loc  * blockSize)+ 85,SeekOrigin.Begin);
 				string blockData = Encoding.ASCII.GetString(reader.ReadBytes(blockSize));
 				blockData = blockData.Substring(85, 12129);
-				List<Transaction> result = utils.SearchForTransactionsFromIndex(blockData, key);
+				List<Transaction> result = utils.SearchForTransactionsFromPointerIndex(blockData, key);
 				transactions.AddRange(result);
 			}
             
@@ -1204,7 +1212,85 @@ namespace CSharpChainNetwork
 			return amount;
         }
 
+		static void RunTimeTests(string number)
+        {
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
+			int num = 10;
+            if (number.All(char.IsDigit))
+            {
+				num = int.Parse(number);
+			}
+			Random rand = new Random();
+			Dictionary<string, TimeSpan> SequentialSearch = new Dictionary<string, TimeSpan>();
+			Dictionary<string, TimeSpan> PointerSearch = new Dictionary<string, TimeSpan>();
+			Dictionary<string, TimeSpan> SQLiteSearch = new Dictionary<string, TimeSpan>();
+			HashSet<int> appeared = new HashSet<int>();
+			for (int i = 0; i < num; i++)
+            {
+				Console.WriteLine($"Progress:{i}/{num}"); 
+				int wallet = rand.Next(3000,4999);
+				Console.WriteLine(wallet);
+                while (appeared.Contains(wallet))
+                {
+					wallet = rand.Next(3000,4999);
+                }
+				appeared.Add(wallet);
+				string walletString = wallet.ToString();
+				SequentialSearch.Add(walletString,SearchTransactionsByNode(walletString, ""));
+				showLine();
+				PointerSearch.Add(walletString, SearchForWalletUsingPointerIndex(walletString));
+				showLine();
+				SQLiteSearch.Add(walletString,SearchForWalletInSQLite(walletString));
+				showLine();
+            }
+			StreamWriter sequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Sequential.csv", FileMode.Append));
+			StreamWriter SQLiteWriter = new StreamWriter(File.Open("C:/temp/Results/SQLite.csv",FileMode.Append));
+			StreamWriter PointerWriter = new StreamWriter(File.Open("C:/temp/Results/Pointer.csv",FileMode.Append));
+			
+			foreach (KeyValuePair<string,TimeSpan> kvp in SequentialSearch)
+            {
+				sequentialWriter.WriteLine($"{kvp.Key},{kvp.Value}");
+            }
+            foreach (KeyValuePair<string,TimeSpan> kvp in SQLiteSearch)
+            {
+				SQLiteWriter.WriteLine($"{kvp.Key},{kvp.Value}");
+            }
+            foreach (KeyValuePair<string,TimeSpan> kvp in PointerSearch)
+            {
+				PointerWriter.WriteLine($"{kvp.Key},{kvp.Value}");
+            }
+			timer.Stop();
+			Console.WriteLine($"Time Taken for running tests:{timer.Elapsed}");
+			sequentialWriter.Close();
+			SQLiteWriter.Close();
+			PointerWriter.Close();
 
+        }
+
+		static void RunTimeTestFor(string wallet)
+        {
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
+			TimeSpan sqlLite;
+			TimeSpan pointer;
+			TimeSpan sequential;
+
+			sequential = SearchTransactionsByNode(wallet,"false");
+			sqlLite = SearchForWalletInSQLite(wallet);
+			pointer = SearchForWalletUsingPointerIndex(wallet);
+
+			StreamWriter sequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Sequential.csv", FileMode.Append));
+			StreamWriter SQLiteWriter = new StreamWriter(File.Open("C:/temp/Results/SQLite.csv", FileMode.Append));
+			StreamWriter PointerWriter = new StreamWriter(File.Open("C:/temp/Results/Pointer.csv", FileMode.Append));
+			sequentialWriter.WriteLine($"{wallet},{sequential}");
+			SQLiteWriter.WriteLine($"{wallet},{sqlLite}");
+			PointerWriter.WriteLine($"{wallet},{pointer}");
+
+			sequentialWriter.Close();
+			SQLiteWriter.Close();
+			PointerWriter.Close();
+		}
 		#endregion
 
 		#endregion
