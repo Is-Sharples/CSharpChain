@@ -39,26 +39,16 @@ namespace CSharpChainNetwork.PointerIndex
             }
         }
 
-        public List<int> ReadIndex(string key) 
+        public string[] ReadIndex(string key) 
         {
             BinaryReader reader = new BinaryReader(File.OpenRead($"{pointerPath}{key}.dat"));
-            StringBuilder builder = new StringBuilder();
-            while (reader.PeekChar() > -1)
-            {
-                builder.Append(reader.ReadChar());
-            }
-            string[] array = builder.ToString().Split(',');
-            List<int> toReturn = new List<int>();
-            foreach (string location in array)
-            {
-                if (location != "")
-                {
-                    toReturn.Add(int.Parse(location));
-                }
-            }
+            reader.BaseStream.Seek(1,SeekOrigin.Begin);
+            string file = Encoding.ASCII.GetString(reader.ReadBytes(Convert.ToInt32(reader.BaseStream.Length))) ;
+            string[] array = file.Split(',');
+            
 
 
-            return toReturn;
+            return array;
         }
     }
 }

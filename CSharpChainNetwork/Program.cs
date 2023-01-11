@@ -268,7 +268,8 @@ namespace CSharpChainNetwork
 					stream.Seek(blockNum * blockSize, SeekOrigin.Begin);
 					string temp = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 					temp = temp.Substring(85, 12129);
-					List<Transaction> res = utils.SearchForTransactionsFromIndex(temp, key);
+					//List<Transaction> res = utils.SearchForTransactionsFromIndex(temp, key);
+					List<Transaction> res = utils.ExperimentalSearchForTransactions(temp, key);
 					Transactions.AddRange(res);
 					blockNum++;
 				}
@@ -286,7 +287,8 @@ namespace CSharpChainNetwork
 						stream.Seek(blockNum * blockSize, SeekOrigin.Begin);
 						string stringResult = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 						stringResult = stringResult.Substring(85, 12129);
-						List<Transaction> result = utils.SearchForTransactionsFromIndex(stringResult, key);
+						//List<Transaction> result = utils.SearchForTransactionsFromIndex(stringResult, key);
+						List<Transaction> result = utils.ExperimentalSearchForTransactions(stringResult,key);
 						Transactions.AddRange(result);
 						blockNum++;
 					}
@@ -1172,7 +1174,7 @@ namespace CSharpChainNetwork
 			//PointerForIndex util = new PointerForIndex();
 			PointerIndexV2 util = new PointerIndexV2();
 			timer.Start();
-			List<int> locations = util.ReadIndex(key);
+			string[] locations = util.ReadIndex(key);
 			//List<int> locations = util.SearchByPointer(key);
 			//List<int> locations = util.ReadFromIndexFile(key);
 			Console.WriteLine($"Started Searching for:{key}");
@@ -1184,19 +1186,19 @@ namespace CSharpChainNetwork
 			return timer.Elapsed;
 		}
 
-		static decimal InternalSearchBlockLocationsForPointerIndex(List<int> locations, string key)
+		static decimal InternalSearchBlockLocationsForPointerIndex(string [] locations, string key)
         {
 			Stream stream = File.OpenRead(master);
 			BinaryReader reader = new BinaryReader(stream,Encoding.ASCII);
 			Transaction utils = new Transaction();
 			List<Transaction> transactions = new List<Transaction>();
 
-			foreach (int loc in locations)
+			foreach (string loc in locations)
             {
-				stream.Seek((loc  * blockSize)+ 85,SeekOrigin.Begin);
-				string blockData = Encoding.ASCII.GetString(reader.ReadBytes(blockSize));
-				blockData = blockData.Substring(85, 12129);
-				List<Transaction> result = utils.SearchForTransactionsFromPointerIndex(blockData, key);
+				stream.Seek((int.Parse(loc)  * blockSize) + 85,SeekOrigin.Begin);
+				string blockData = Encoding.ASCII.GetString(reader.ReadBytes(12044));
+				//List<Transaction> result = utils.SearchForTransactionsFromPointerIndex(blockData, key);
+				List<Transaction> result = utils.ExperimentalSearchForTransactions(blockData, key);
 				transactions.AddRange(result);
 			}
             

@@ -114,16 +114,6 @@ namespace CSharpChainModel
 			string desc = "";
 
 			List<Transaction> list = new List<Transaction>();
-			/*
-			 * Using arbitrary delimiters the mathematical symbols are used 
-			 * to distinguish the different strings as data types:
-			 * up till - is the receiver of the transaction
-			 * from - to + is the sender 
-			 * from + to * is the description 
-			 * from * to % is the amount
-			 * the % symbol is the end of the transaction
-			*/
-
 			while (text.Contains($"{key}"))
 			{
 				if (text.Substring(0, text.IndexOf("+")).Contains(key))
@@ -138,6 +128,32 @@ namespace CSharpChainModel
 			}
 			return list;
 		}
+
+		public List<Transaction> ExperimentalSearchForTransactions(string text, string key)
+		{
+			string recieved = "";
+			string sent = "";
+			decimal amount = 0;
+
+			List<Transaction> list = new List<Transaction>();
+			List<string >arr = text.Split('%').ToList<string>();
+			arr.RemoveAt(arr.Count-1);
+            foreach (string trans in arr)
+            {
+				int plus = trans.IndexOf('+');
+				if (trans.Substring(0,plus).Contains(key))
+                {
+					int minus = trans.IndexOf('-');
+					int times = trans.IndexOf('*');
+					recieved = trans.Substring(0,minus);
+					sent = trans.Substring(minus+1,plus-(minus+1));
+					amount = decimal.Parse(trans.Substring(times+1));
+					list.Add(new Transaction(sent,recieved,amount,""));
+                }
+            }
+			return list;
+		}
+
 
 
 
