@@ -13,7 +13,6 @@ using System.Net.Http;
 using System.Text;
 using FileHelpers;
 using Weighted_Randomizer;
-using System.Data.SQLite;
 
 
 namespace CSharpChainNetwork
@@ -27,6 +26,7 @@ namespace CSharpChainNetwork
 		public static BlockchainServices blockchainServices;
 		public static NodeServices nodeServices;
 		static int blockSize = 12288;
+		static long longBlockSize = 12288;
 		static bool useNetwork = true;
 		static int maxUsers = 2000;
 		static Transaction utilities = new Transaction();
@@ -46,7 +46,7 @@ namespace CSharpChainNetwork
 
 			baseAddress = args[0];
 			if (!baseAddress.EndsWith("/")) baseAddress += "/";
-
+			
 			// Start OWIN host 
 			using (WebApp.Start<Startup>(url: baseAddress))
 			{
@@ -174,12 +174,15 @@ namespace CSharpChainNetwork
 							GenerateSQLLite(true);
 							GetLocationOfBlocks();
 							break;
-						case "ps":
-							SearchForWalletUsingPointerIndex(command[1]);
+						case "fs":
+							SearchForWalletUsingFileIndex(command[1]);
 
 							break;
 						case "ss":
 							SearchForWalletInSQLite(command[1]);
+							break;
+						case "ps":
+							SearchForWalletUsingPointerIndex(command[1]);
 							break;
 
 						case "script":
@@ -202,9 +205,18 @@ namespace CSharpChainNetwork
 						case "cls":
 							Console.Clear();
 							break;
-
+						case "genindex":
+							Stopwatch stopwatch = new Stopwatch();
+							stopwatch.Start();
+							GenerateFileIndex();
+							//GeneratePointerIndexFromMaster();
+							Console.WriteLine($"Time taken for generating indexes:{stopwatch.Elapsed}");
+							break;
 						case "runtest":
 							RunTimeTests(command[1]);
+							break;
+						case "t":
+							
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -255,8 +267,8 @@ namespace CSharpChainNetwork
 			List<Block> blocks = new List<Block>();
 			Transaction utils = new Transaction();
 			List<Transaction> Transactions = new List<Transaction>();
-			int blockNum = 0;
-			for (int i = 0; i < locations.Length; i++)
+			long blockNum = 0;
+			for (long i = 0; i < locations.Length; i++)
 			{
 				string current = locations[i].Trim();
 				if (current == "F")
@@ -265,7 +277,7 @@ namespace CSharpChainNetwork
 				}
 				else if (current == "T")
 				{
-					stream.Seek(blockNum * blockSize, SeekOrigin.Begin);
+					stream.Seek(blockNum * longBlockSize, SeekOrigin.Begin);
 					string temp = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 					temp = temp.Substring(85, 12129);
 					//List<Transaction> res = utils.SearchForTransactionsFromIndex(temp, key);
@@ -281,10 +293,10 @@ namespace CSharpChainNetwork
 				else if (current.Any(char.IsDigit) && current.Contains('T'))
 				{
 					int num = int.Parse(current.Replace("T", ""));
-					int temp = blockNum;
-					for (int j = blockNum; j < temp + num; j++)
+					long temp = blockNum;
+					for (long j = blockNum; j < temp + num; j++)
 					{
-						stream.Seek(blockNum * blockSize, SeekOrigin.Begin);
+						stream.Seek(blockNum * longBlockSize, SeekOrigin.Begin);
 						string stringResult = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 						stringResult = stringResult.Substring(85, 12129);
 						//List<Transaction> result = utils.SearchForTransactionsFromIndex(stringResult, key);
@@ -306,9 +318,9 @@ namespace CSharpChainNetwork
 			return amount;
 		}
 
-		static List<UserTransaction> InternalSeekTransactionsFromFile(string key)
+		static List<Transaction> InternalSeekTransactionsFromFile(string key)
         {
-			List<UserTransaction> userTransactions = new List<UserTransaction>();
+			//List<UserTransaction> userTransactions = new List<UserTransaction>();
 			Transaction utilities = new Transaction();
 			Stream stream = File.Open(master, FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
@@ -321,21 +333,23 @@ namespace CSharpChainNetwork
             {
 				Stopwatch timer = new Stopwatch();
 				timer.Start();
-				for (int i = 0; i < fileLength / blockSize; i++)
+				for (long i = 0; i < fileLength / blockSize; i++)
 				{
-					InternalShowProgress(i,fileLength/blockSize);
+					InternalShowProgressLong(i,fileLength/blockSize);
 
 					if (i * blockSize < fileLength)
 					{
-						//Go to Byte: 512 * block Num 
-						stream.Seek(i * blockSize, SeekOrigin.Begin);
+						//Go to Byte: 512 * block Num
+						
+						stream.Seek(i * longBlockSize, SeekOrigin.Begin);
 						string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 						blockData = blockData.Substring(85, 12129);
 						//parse from transactions characters to transactional data and store in list
-						List<UserTransaction> result = utilities.SearchForTransactions(blockData, key, i);
+						//List<UserTransaction> result = utilities.SearchForTransactions(blockData, key, i);
+						List<Transaction> result = utilities.ExperimentalSearchForTransactions(blockData,key);
 						if (result.Count > 0)
 						{
-							userTransactions.AddRange(result);
+							transactions.AddRange(result);
 						}
 						else
 						{
@@ -352,7 +366,7 @@ namespace CSharpChainNetwork
             }
 
 			stream.Close();
-			return userTransactions;
+			return transactions;
 		}
 
 		static void InternalAppendSQLiteIndex(Block[] blocks)
@@ -454,6 +468,30 @@ namespace CSharpChainNetwork
 		#region utilities
 
 		static void InternalShowProgress(int place, long total)
+		{
+			if (place == (total) * (0.25))
+			{
+				Console.WriteLine("25% is done");
+			}
+			else if (place == (total) * (0.5))
+			{
+				Console.WriteLine("Half way there, 50% is done");
+			}
+			else if (place == (total) * (0.75))
+			{
+				Console.WriteLine("Nearly There,75% is done");
+			}
+			else if (place == (total) * (0.9))
+			{
+				Console.WriteLine("So Close, 90% is done");
+			}
+			else if (place == (total) * (0.15))
+			{
+				Console.WriteLine("We've barely started, 15% is done");
+			}
+		}
+
+		static void InternalShowProgressLong(long place, long total)
 		{
 			if (place == (total) * (0.25))
 			{
@@ -938,22 +976,21 @@ namespace CSharpChainNetwork
 				{
 					block = CommandBlockchainMine("System2");
 					newBlocks.Add(block);
-					tempUsers = util.GetUsersForPointerIndex(block);
+					//tempUsers = util.GetUsersForPointerIndex(block);
 					/*
-						indexUtil.CreatePointerIndexFilesForNewSystem(tempUsers, BlockLength);
-						foundUserLocs = indexUtil.CreateDictionaryForUpdating(tempUsers);
-						indexUtil.GoToTextFilesByDictionary(foundUserLocs, BlockLength);
-						indexUtil.CreateLastSeen(BlockLength, tempUsers);
-						indexUtil.CreateFirstSeen(BlockLength,tempUsers);
-					 */
-
-					index.AppendIndex(tempUsers,BlockLength);
+					indexUtil.CreatePointerIndexFilesForNewSystem(tempUsers, BlockLength);
+					foundUserLocs = indexUtil.CreateDictionaryForUpdating(tempUsers);
+					indexUtil.GoToTextFilesByDictionary(foundUserLocs, BlockLength);
+					indexUtil.CreateLastSeen(BlockLength, tempUsers);
+					indexUtil.CreateFirstSeen(BlockLength,tempUsers);
+					*/
+					//index.AppendIndex(tempUsers,BlockLength);
 					BlockLength++;
 				}
 			}
 			block = CommandBlockchainMine("System2");
 			newBlocks.Add(block);
-			tempUsers = util.GetUsersForPointerIndex(block);
+			//tempUsers = util.GetUsersForPointerIndex(block);
 			/*
 			indexUtil.CreatePointerIndexFilesForNewSystem(tempUsers, BlockLength);
 			foundUserLocs = indexUtil.CreateDictionaryForUpdating(tempUsers);
@@ -961,7 +998,7 @@ namespace CSharpChainNetwork
 			indexUtil.CreateLastSeen(BlockLength, tempUsers);
 			indexUtil.CreateFirstSeen(BlockLength,tempUsers);
 			*/
-			index.AppendIndex(tempUsers, BlockLength);
+			//index.AppendIndex(tempUsers, BlockLength);
 			WriteFromFixedLengthToBinary("temp");
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();
@@ -1043,6 +1080,12 @@ namespace CSharpChainNetwork
 			return temp;
 		}
 
+		static void GenerateFileIndex()
+        {
+			PointerIndexV2 file = new PointerIndexV2();
+			file.GenerateIndexFromFile(master,blockSize);
+        }
+
 		#region SearchCommands
 
 
@@ -1059,15 +1102,8 @@ namespace CSharpChainNetwork
 			else
 			{
 				timer.Start();
-				List<UserTransaction> result = InternalSeekTransactionsFromFile(key.Trim());
+				List<Transaction> result = InternalSeekTransactionsFromFile(key.Trim());
 				List<int> foundInBlocks = new List<int>();
-				foreach (UserTransaction user in result)
-				{
-					if (!foundInBlocks.Contains(user.blockIndex))
-					{
-						foundInBlocks.Add(user.blockIndex);
-					}
-				}
 
 
 				showLine();
@@ -1077,22 +1113,8 @@ namespace CSharpChainNetwork
 				}
 				else
 				{
-					int count = 0;
-					foreach (int index in foundInBlocks)
-					{
-						writer.WriteLine($"{key} appeared in Block," + index);
-						count++;
-					}
-
-					if (showAll == "true")
-					{
-						foreach (UserTransaction trans in result)
-						{
-							Console.WriteLine(trans.ToString());
-							showLine();
-						}
-					}
-					foreach (UserTransaction trans in result)
+					
+					foreach (Transaction trans in result)
 					{
 						if (trans.ReceiverAddress == key || trans.SenderAddress == key)
 						{
@@ -1100,8 +1122,8 @@ namespace CSharpChainNetwork
 						}
 					}
 					Console.WriteLine($"Balance for {key}: {amount}");
-					Console.WriteLine($"Transactions for {key} found in No of Blocks: " + count);
-					Console.WriteLine($"Transactions for {key}:" + result.Count);
+					//Console.WriteLine($"Transactions for {key} found in No of Blocks: " + count);
+					//Console.WriteLine($"Transactions for {key}:" + result.Count);
 					Console.WriteLine($"Time Taken for Searching for {key}:" + timer.Elapsed.ToString());
 				}
 			}
@@ -1111,7 +1133,7 @@ namespace CSharpChainNetwork
 			return timer.Elapsed;
 		}
 
-		static TimeSpan SearchForWalletInSQLite(string key)
+		static Tuple<TimeSpan,TimeSpan> SearchForWalletInSQLite(string key)
 		{
 			Stopwatch timer = new Stopwatch();
 			SQLiteController sql = new SQLiteController(database);
@@ -1160,15 +1182,16 @@ namespace CSharpChainNetwork
 
 
 			reader.Close();
-			Console.WriteLine($"Time Taken For Finding Locations:{timer.Elapsed}");
+			TimeSpan temp = timer.Elapsed;
+			Console.WriteLine($"Time Taken For Finding Locations:{temp}");
 			decimal amount = InternalParseBlockLocations(locations.ToArray(), key);
 			Console.WriteLine("Time Taken:" + timer.Elapsed.ToString());
 			timer.Stop();
 
-			return timer.Elapsed;
+			return new Tuple<TimeSpan, TimeSpan>(temp,timer.Elapsed);
 		}
 
-		static TimeSpan SearchForWalletUsingPointerIndex(string key)
+		static Tuple<TimeSpan,TimeSpan> SearchForWalletUsingFileIndex(string key)
         {
 			Stopwatch timer = new Stopwatch();
 			//PointerForIndex util = new PointerForIndex();
@@ -1178,8 +1201,27 @@ namespace CSharpChainNetwork
 			//List<int> locations = util.SearchByPointer(key);
 			//List<int> locations = util.ReadFromIndexFile(key);
 			Console.WriteLine($"Started Searching for:{key}");
-			Console.WriteLine($"Time Taken For Finding Locations:{timer.Elapsed}");
+			TimeSpan temp = timer.Elapsed;
+			Console.WriteLine($"Time Taken For Finding Locations:{temp}");
 			decimal amount = InternalSearchBlockLocationsForPointerIndex(locations,key);
+			timer.Stop();
+			Console.WriteLine($"Amount For {key}:{amount}");
+			Console.WriteLine($"Time Taken for Pointer Index:{timer.Elapsed}");
+			return new Tuple<TimeSpan, TimeSpan>(temp,timer.Elapsed);
+		}
+
+		static TimeSpan SearchForWalletUsingPointerIndex(string key)
+        {
+			Stopwatch timer = new Stopwatch();
+			//PointerForIndex util = new PointerForIndex();
+			PointerForIndex util = new PointerForIndex();
+			timer.Start();
+			
+			string[] locations = util.SearchByPointer(key);
+			//string [] locations = util.ReadFromIndexFile(key);
+			Console.WriteLine($"Started Searching for:{key}");
+			Console.WriteLine($"Time Taken For Finding Locations:{timer.Elapsed}");
+			decimal amount = InternalSearchBlockLocationsForPointerIndex(locations, key);
 			timer.Stop();
 			Console.WriteLine($"Amount For {key}:{amount}");
 			Console.WriteLine($"Time Taken for Pointer Index:{timer.Elapsed}");
@@ -1195,9 +1237,8 @@ namespace CSharpChainNetwork
 
 			foreach (string loc in locations)
             {
-				stream.Seek((int.Parse(loc)  * blockSize) + 85,SeekOrigin.Begin);
+				stream.Seek((long.Parse(loc)  * blockSize) + 85,SeekOrigin.Begin);
 				string blockData = Encoding.ASCII.GetString(reader.ReadBytes(12044));
-				//List<Transaction> result = utils.SearchForTransactionsFromPointerIndex(blockData, key);
 				List<Transaction> result = utils.ExperimentalSearchForTransactions(blockData, key);
 				transactions.AddRange(result);
 			}
@@ -1225,8 +1266,8 @@ namespace CSharpChainNetwork
 			}
 			Random rand = new Random();
 			Dictionary<string, TimeSpan> SequentialSearch = new Dictionary<string, TimeSpan>();
-			Dictionary<string, TimeSpan> PointerSearch = new Dictionary<string, TimeSpan>();
-			Dictionary<string, TimeSpan> SQLiteSearch = new Dictionary<string, TimeSpan>();
+			Dictionary<string, Tuple<TimeSpan,TimeSpan>> PointerSearch = new Dictionary<string, Tuple<TimeSpan,TimeSpan>>();
+			Dictionary<string, Tuple<TimeSpan,TimeSpan>> SQLiteSearch = new Dictionary<string, Tuple<TimeSpan,TimeSpan>>();
 			HashSet<int> appeared = new HashSet<int>();
 			for (int i = 0; i < num; i++)
             {
@@ -1241,7 +1282,7 @@ namespace CSharpChainNetwork
 				string walletString = wallet.ToString();
 				SequentialSearch.Add(walletString,SearchTransactionsByNode(walletString, ""));
 				showLine();
-				PointerSearch.Add(walletString, SearchForWalletUsingPointerIndex(walletString));
+				PointerSearch.Add(walletString, SearchForWalletUsingFileIndex(walletString));
 				showLine();
 				SQLiteSearch.Add(walletString,SearchForWalletInSQLite(walletString));
 				showLine();
@@ -1254,13 +1295,13 @@ namespace CSharpChainNetwork
             {
 				sequentialWriter.WriteLine($"{kvp.Key},{kvp.Value}");
             }
-            foreach (KeyValuePair<string,TimeSpan> kvp in SQLiteSearch)
+            foreach (KeyValuePair<string,Tuple<TimeSpan,TimeSpan>> kvp in SQLiteSearch)
             {
-				SQLiteWriter.WriteLine($"{kvp.Key},{kvp.Value}");
+				SQLiteWriter.WriteLine($"{kvp.Key},{kvp.Value.Item1},{kvp.Value.Item2}");
             }
-            foreach (KeyValuePair<string,TimeSpan> kvp in PointerSearch)
+            foreach (KeyValuePair<string, Tuple<TimeSpan, TimeSpan>> kvp in PointerSearch)
             {
-				PointerWriter.WriteLine($"{kvp.Key},{kvp.Value}");
+				PointerWriter.WriteLine($"{kvp.Key},{kvp.Value.Item1},{kvp.Value.Item2}");
             }
 			timer.Stop();
 			Console.WriteLine($"Time Taken for running tests:{timer.Elapsed}");
@@ -1274,13 +1315,13 @@ namespace CSharpChainNetwork
         {
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
-			TimeSpan sqlLite;
-			TimeSpan pointer;
+			Tuple<TimeSpan,TimeSpan> sqlLite;
+			Tuple<TimeSpan, TimeSpan> pointer;
 			TimeSpan sequential;
 
 			sequential = SearchTransactionsByNode(wallet,"false");
 			sqlLite = SearchForWalletInSQLite(wallet);
-			pointer = SearchForWalletUsingPointerIndex(wallet);
+			pointer = SearchForWalletUsingFileIndex(wallet);
 
 			StreamWriter sequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Sequential.csv", FileMode.Append));
 			StreamWriter SQLiteWriter = new StreamWriter(File.Open("C:/temp/Results/SQLite.csv", FileMode.Append));
@@ -1293,6 +1334,15 @@ namespace CSharpChainNetwork
 			SQLiteWriter.Close();
 			PointerWriter.Close();
 		}
+
+		static void GeneratePointerIndexFromMaster()
+        {
+			PointerForIndex pointer = new PointerForIndex();
+			pointer.GenerateIndexFromFile(master,blockSize);
+
+
+        }
+
 		#endregion
 
 		#endregion

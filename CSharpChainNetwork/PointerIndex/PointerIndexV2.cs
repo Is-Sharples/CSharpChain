@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
-
+using CSharpChainModel;
 namespace CSharpChainNetwork.PointerIndex
 {
     public class PointerIndexV2
@@ -49,6 +49,37 @@ namespace CSharpChainNetwork.PointerIndex
 
 
             return array;
+        }
+
+        public void GenerateIndexFromFile(string master, long blocksize)
+        {
+            BinaryReader reader = new BinaryReader(File.Open(master,FileMode.Open),Encoding.ASCII);
+            long fileLength = reader.BaseStream.Length / blocksize;
+            Transaction util = new Transaction();
+            Dictionary<string, StringBuilder> index = new Dictionary<string, StringBuilder>();
+            for (int i = 3000;i < 5000;i++)
+            {
+                index.Add(i.ToString(),new StringBuilder());
+            }
+            
+            for (long i = 1;i < fileLength; i++)
+            {
+                Console.WriteLine($"{i}/{fileLength}");
+                reader.BaseStream.Seek((i * blocksize) + 85,SeekOrigin.Begin);
+                string blockData = Encoding.ASCII.GetString(reader.ReadBytes(12044));
+                HashSet<string> users = util.GetUsersForPointerIndex(blockData);
+                foreach (string user in users)
+                {
+                    index[user].Append($",{i}");
+                }
+            }
+            foreach (KeyValuePair<string,StringBuilder> kvp in index)
+            {
+                BinaryWriter writer = new BinaryWriter(File.Create($"{pointerPath}{kvp.Key}.dat"),Encoding.ASCII);
+                writer.Write(Encoding.ASCII.GetBytes(kvp.Value.ToString()));
+                writer.Close();
+            }
+            reader.Close();
         }
     }
 }

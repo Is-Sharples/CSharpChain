@@ -154,15 +154,30 @@ namespace CSharpChainModel
 			return list;
 		}
 
-
-
-
 		public UserTransaction ToUserTransaction(int blockNum)
         {	
 
 			return new UserTransaction(blockNum, this.SenderAddress, this.ReceiverAddress, this.Amount, this.Description);
         }
 
+		public HashSet<string> GetUsersForPointerIndex(string text)
+        {
+			HashSet<string> users = new HashSet<string>();
+			List<string> arr = text.Split('%').ToList<string>();
+			arr.RemoveAt(arr.Count - 1);
+            foreach (string trans in arr)
+            {
+				int minus = trans.IndexOf('-');
+				int plus = trans.IndexOf('+');
+				users.Add(trans.Substring(0, minus));
+				users.Add(trans.Substring(minus + 1, plus - minus-1));
+            }
+			users.Remove("System2");
+			users.Remove("SYSTEM");
+			return users;
+        }
+		
+		
 		public List<string> GetUsersFromText(string text, List<string> users)
         {
 			string recieved = "";

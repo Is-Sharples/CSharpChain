@@ -11,6 +11,64 @@ namespace CSharpChainNetwork.PointerIndex
     public class PointerForIndex
     {
 		string pointerPath = "C:/temp/PointerSystem/";
+
+		public void GenerateIndexFromFile(string master, long blockSize) 
+		{
+			
+			Transaction util = new Transaction();
+			BinaryReader reader = new BinaryReader(File.OpenRead(master),Encoding.ASCII);
+			long fileLength = reader.BaseStream.Length;
+			
+			Dictionary<long, HashSet<string>> tempIndex = new Dictionary<long, HashSet<string>>();
+			//fileLength/blockSize
+			for (long i = 1; i < fileLength/blockSize;i++)
+            {
+				Console.WriteLine($"{i}/{fileLength / blockSize}");
+				reader.BaseStream.Seek((i * blockSize) + 85,SeekOrigin.Begin);
+				string blockData = Encoding.ASCII.GetString(reader.ReadBytes(12044));
+				tempIndex.Add(i, util.GetUsersForPointerIndex(blockData));
+                if (i == 25000)
+                {
+					InternalWriteToDisk(tempIndex);
+					
+                }
+			}
+		}
+
+		private void InternalWriteToDisk(Dictionary<long, HashSet<string>> tempIndex)
+        {
+			Dictionary<string, int> foundUserLocs;
+			Dictionary<long, StringBuilder> index = new Dictionary<long, StringBuilder>();
+			foreach (KeyValuePair<long, HashSet<string>> kvp in tempIndex)
+			{
+				Console.WriteLine(kvp.Key);
+				StringBuilder builder = new StringBuilder();
+				foreach (string user in kvp.Value)
+				{
+					builder.Append($"_{user}-%");
+				}
+				index.Add(kvp.Key, builder);
+				foundUserLocs = CreateDictionaryForUpdating(kvp.Value);
+				foreach (KeyValuePair<string, int> kvp2 in foundUserLocs)
+				{
+					string[] arr = index[kvp2.Value].ToString().Split('%');
+                    for (int i = 0; i < arr.Length;i++)
+                    {
+                        if (arr[i].Contains($"_{kvp2.Key}-"))
+                        {
+							arr[i] = $"{arr[i]}{kvp2.Value}";
+						}	
+                    }
+					index[kvp2.Value] = new StringBuilder(string.Join("%",arr));
+				}
+				CreateLastSeen(kvp.Key, kvp.Value);
+				if (kvp.Key < 1500)
+				{
+					CreateFirstSeen(kvp.Key, kvp.Value);
+				}
+			}
+		}
+
 		public void CreateLastSeen(long blockNum, HashSet<string> users)
 		{
 			string pathV1 = $"{pointerPath}/LastSeenV1.txt";
@@ -133,44 +191,44 @@ namespace CSharpChainNetwork.PointerIndex
 	
 		}
 
-		public string GetLocationFromLastSeen(string wallet)
+		public Dictionary<string,string> GetLocationFromLastSeen(HashSet<string> wallets)
         {
-			Stream stream;
+			//Stream stream;
 			string pathV1 = $"{pointerPath}/LastSeenV1.txt";
 			string pathV2 = $"{pointerPath}/LastSeenV2.txt";
-
-			wallet = $"{wallet}-";
+			string[] temp;
+			Dictionary<string, string> locations = new Dictionary<string, string>();
+			//wallet = $"{wallet}-";
             if (File.Exists(pathV1))
             {
-				stream = File.Open(pathV1,FileMode.Open);
+				temp = File.ReadAllLines(pathV1);
+				//stream = File.Open(pathV1,FileMode.Open);
+
             }else if (File.Exists(pathV2))
             {
-				stream = File.Open(pathV2,FileMode.Open);
+				temp = File.ReadAllLines(pathV2);
+				//stream = File.Open(pathV2,FileMode.Open);
             }else
             {
-				return "";
+				return null;
             }
-			StreamReader reader = new StreamReader(stream, Encoding.ASCII);
-			while(reader.Peek() > -1)
+            foreach (string line in temp)
             {
-				string line = reader.ReadLine();
-                if (line.Contains(wallet))
+                foreach (string wallet in wallets)
                 {
-					reader.Close();
-					stream.Close();
-					return line.Substring(line.IndexOf('-')+1);
-                }
+					if (line.Contains($"{wallet}-"))
+					{
+						locations.Add(wallet,line.Substring(line.IndexOf('-')+1));
+					}
+				}
             }
 
-			reader.Close();
-			stream.Close();
-
-			return "";
+			return locations;
         }
 
 		public void CreatePointerIndexFilesForNewSystem(HashSet<string> users, long blockNum)
         {
-			string path = $"{pointerPath}/IndexFiles/{blockNum}.dat";
+			string path = $"{pointerPath}/PointerIndexFiles/{blockNum}.dat";
 			List<string> userString = users.ToList<string>();
 			userString.Sort();
 			Stream stream = File.Create(path);
@@ -187,22 +245,23 @@ namespace CSharpChainNetwork.PointerIndex
 		public Dictionary<string,int> CreateDictionaryForUpdating(HashSet<string> users)
         {
 			Dictionary<string, int> foundLocations = new Dictionary<string, int>();
+			Dictionary<string, string> locations = GetLocationFromLastSeen(users);
 
-            foreach (string user in users)
+            if (locations != null)
             {
-				string stringLoc = GetLocationFromLastSeen(user);
-				if(stringLoc.All(char.IsDigit) && stringLoc != "")
-                {
-					int location = int.Parse(stringLoc);
-					foundLocations.Add(user,location);
-                }
+				foreach (KeyValuePair<string, string> kvp in locations)
+				{
+					int location = int.Parse(kvp.Value);
+					foundLocations.Add(kvp.Key, location);
+				}
 			}
+			
 			return foundLocations;
         }
 
 		public void GoToTextFilesByDictionary(Dictionary<string,int> foundLocations, long blockNum)
         {
-			string pathStub = $"{pointerPath}/IndexFiles/";
+			string pathStub = $"{pointerPath}/PointerIndexFiles/";
 			HashSet<int> locations = new HashSet<int>();
 			List<string> wallets = new List<string>();
 			List<string> appeared = new List<string>();
@@ -256,12 +315,12 @@ namespace CSharpChainNetwork.PointerIndex
             }	
 		}
 
-		public List<int> SearchByPointer(string wallet)
+		public string [] SearchByPointer(string wallet)
 		{
-			int loc = 0;
+			string loc = "";
 			int walletValue = int.Parse(wallet);
 			bool breaker = true;
-			string pathStub = $"{pointerPath}/IndexFiles/";
+			string pathStub = $"{pointerPath}/PointerIndexFiles/";
 			StreamReader firstReader = new StreamReader($"{pointerPath}/FirstSeen.txt");
 			long firstMid = firstReader.BaseStream.Length / 2;
 			firstReader.BaseStream.Seek(firstMid,SeekOrigin.Begin);
@@ -294,22 +353,21 @@ namespace CSharpChainNetwork.PointerIndex
 			}
 			else
             {
-				loc = int.Parse(firstTemp.Substring(firstTemp.IndexOf('-')+1));
+				loc = firstTemp.Substring(firstTemp.IndexOf('-')+1);
             }
 			wallet = $"_{wallet}";
-			List<int> locations = new List<int>();
-            if (loc == 0)
+			List<string> locations = new List<string>();
+            if (loc == "")
             {
-				loc = int.Parse(firstTemp.Substring(firstTemp.IndexOf('-')+1));
+				loc = firstTemp.Substring(firstTemp.IndexOf('-')+1);
             }
-            if (loc > 0)
-            {
-				locations.Add(loc);
-			}
+            
+			locations.Add(loc);
+			
 
             if (locations.Count == 0)
             {
-				return locations;
+				return locations.ToArray();
             }
             while (breaker)
             {
@@ -353,7 +411,7 @@ namespace CSharpChainNetwork.PointerIndex
                     {
 						if (vs.All(char.IsDigit))
 						{
-							loc = int.Parse(string.Join("", vs));
+							loc = string.Join("", vs);
 							locations.Add(loc);
 							found = true;
 						}
@@ -372,7 +430,8 @@ namespace CSharpChainNetwork.PointerIndex
 					string nextBlock = fraction.Substring(fraction.IndexOf('-') + 1);
 					if (nextBlock.All(char.IsDigit) && nextBlock != "")
 					{
-						loc = int.Parse(nextBlock);
+						loc = nextBlock;
+						Console.WriteLine(loc);
 						locations.Add(loc);
 					}
 					else
@@ -382,7 +441,7 @@ namespace CSharpChainNetwork.PointerIndex
 				}
             }
 
-			return locations;
+			return locations.ToArray();
         }
 
 		public void SortFirstSeen()
@@ -409,16 +468,16 @@ namespace CSharpChainNetwork.PointerIndex
 			File.WriteAllLines($"{pointerPath}/FirstSeen.txt",finalLines.ToArray());
         }
 
-		public List<int> ReadFromIndexFile(string key)
+		public string[] ReadFromIndexFile(string key)
         {
 			bool breakLoop = false;
-			List<int> toReturn = new List<int>();
+			List<string> toReturn = new List<string>();
 			int walletValue = int.Parse(key);
-			string pathStub = $"{pointerPath}/IndexFiles/";
+			string pathStub = $"{pointerPath}/PointerIndexFiles/";
 			string[] firstSeen = File.ReadAllLines($"{pointerPath}/FirstSeen.txt");
 			string firstLocation = firstSeen[int.Parse(key)-3000];
 			firstLocation = firstLocation.Substring(firstLocation.IndexOf('-')+1);
-			int loc = int.Parse(firstLocation);
+			string loc = firstLocation;
 			toReturn.Add(loc);
 			while (!breakLoop) {
 				BinaryReader reader = new BinaryReader(File.OpenRead($"{pathStub}{loc}.dat"));
@@ -444,7 +503,7 @@ namespace CSharpChainNetwork.PointerIndex
 					}
 					if (toParse.Count > 0)
 					{
-						loc = int.Parse(string.Join("", toParse));
+						loc = string.Join("", toParse);
 						toReturn.Add(loc);
 						found = true;
 					}
@@ -483,7 +542,7 @@ namespace CSharpChainNetwork.PointerIndex
 						}
 						if (toParse.All(char.IsDigit) && toParse.Count > 0)
 						{
-							loc = int.Parse(string.Join("", toParse));
+							loc = string.Join("", toParse);
 							toReturn.Add(loc);
 						}
 						else
@@ -496,12 +555,14 @@ namespace CSharpChainNetwork.PointerIndex
 				reader.Close();
 			}
 			
-			return toReturn;
+			return toReturn.ToArray();
 		}
 
 		public string getString(byte [] input)
         {
 			return Encoding.ASCII.GetString(input);
         }
+
+
 	}
 }
