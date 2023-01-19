@@ -1,4 +1,5 @@
 ﻿using CSharpChainModel;
+using CSharpChainNetwork.Faster;
 using CSharpChainNetwork.SQL_Class;
 using CSharpChainNetwork.PointerIndex;
 using CSharpChainServer;
@@ -215,8 +216,18 @@ namespace CSharpChainNetwork
 						case "runtest":
 							RunTimeTests(command[1]);
 							break;
+						case "faster":
+							var temp = new FastDB("C:/temp/FASTER");
+							temp.SearchForValueWith("1");
+							temp.SearchForValueWith("222");
+							temp.Upsert("222","transaction-5");
+							temp.SearchForValueWith("222");
+							break;
 						case "t":
-							
+							HashSet<string> temper = new HashSet<string>();
+							for(int i = 0; i < 512; i++)
+								temper.Add(new Transaction("3000","4000",i,"desc").Hash());
+							Console.WriteLine(temper.Count);
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -970,35 +981,17 @@ namespace CSharpChainNetwork
 				{
 					receiver = randomizer.NextWithReplacement();
 				}
-				CommandTransactionsAdd(sender, receiver.ToString(), tempAmount, i.ToString());
+				CommandTransactionsAdd(sender, receiver, tempAmount, i.ToString());
 				
 				if ((i % transNo) == 0 && blockchainServices.Blockchain.PendingTransactions.Count != 1)
 				{
 					block = CommandBlockchainMine("System2");
 					newBlocks.Add(block);
-					//tempUsers = util.GetUsersForPointerIndex(block);
-					/*
-					indexUtil.CreatePointerIndexFilesForNewSystem(tempUsers, BlockLength);
-					foundUserLocs = indexUtil.CreateDictionaryForUpdating(tempUsers);
-					indexUtil.GoToTextFilesByDictionary(foundUserLocs, BlockLength);
-					indexUtil.CreateLastSeen(BlockLength, tempUsers);
-					indexUtil.CreateFirstSeen(BlockLength,tempUsers);
-					*/
-					//index.AppendIndex(tempUsers,BlockLength);
 					BlockLength++;
 				}
 			}
 			block = CommandBlockchainMine("System2");
 			newBlocks.Add(block);
-			//tempUsers = util.GetUsersForPointerIndex(block);
-			/*
-			indexUtil.CreatePointerIndexFilesForNewSystem(tempUsers, BlockLength);
-			foundUserLocs = indexUtil.CreateDictionaryForUpdating(tempUsers);
-			indexUtil.GoToTextFilesByDictionary(foundUserLocs,BlockLength);
-			indexUtil.CreateLastSeen(BlockLength, tempUsers);
-			indexUtil.CreateFirstSeen(BlockLength,tempUsers);
-			*/
-			//index.AppendIndex(tempUsers, BlockLength);
 			WriteFromFixedLengthToBinary("temp");
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();

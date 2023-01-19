@@ -188,7 +188,7 @@
     <Compile Include="Controllers\BlockchainController.cs" />
     <Compile Include="Controllers\TransactionsController.cs" />
     <Compile Include="Controllers\NetworkController.cs" />
-    <Compile Include="LevelDB\LvlController.cs" />
+    <Compile Include="Faster\FastDB.cs" />
     <Compile Include="PointerIndex\PointerForIndex.cs" />
     <Compile Include="PointerIndex\PointerIndexV2.cs" />
     <Compile Include="Program.cs" />

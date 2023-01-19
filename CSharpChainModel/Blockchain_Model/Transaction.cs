@@ -2,7 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
 using FileHelpers;
+using System.Text;
+
 namespace CSharpChainModel
 {	
 	[FixedLengthRecord]
@@ -39,94 +42,20 @@ namespace CSharpChainModel
 				$"Description: {this.Description} ";
 		}
 
-		public List<UserTransaction> SearchForTransactions(string text, string key, int blockNum)
+		public string Hash()
         {
-			string recieved = "";
-			string sent = "";
-			decimal amount = 0;
-			string desc = "";
 			
-			List<UserTransaction> list = new List<UserTransaction>();
-			/*
-			 * Using arbitrary delimiters the mathematical symbols are used 
-			 * to distinguish the different strings as data types:
-			 * up till - is the receiver of the transaction
-			 * from - to + is the sender 
-			 * from + to * is the description 
-			 * from * to % is the amount
-			 * the % symbol is the end of the transaction
-			*/
-			
-			while (text.Contains("%"))
+			string toHash = $"{ReceiverAddress}{SenderAddress}{Description}{Amount}";
+
+			Byte[] hashBytes;
+			using (var algorithm = SHA1.Create())
 			{
-				
-				if (text.Substring(0,text.IndexOf("+")).Contains(key))
-                {	
-					recieved = text.Substring(0, text.IndexOf("-"));
-					sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+")-text.IndexOf("-")-1);
-					desc = text.Substring(text.IndexOf("+") + 1, text.IndexOf("*")-text.IndexOf("+")-1);
-					amount = Decimal.Parse(text.Substring(text.IndexOf("*") + 1, text.IndexOf("%")-text.IndexOf("*")-1));
-					list.Add(new UserTransaction(blockNum, sent, recieved, amount, desc));
-				}
-				text = text.Substring(text.IndexOf("%") + 1);
+				hashBytes = algorithm.ComputeHash(Encoding.ASCII.GetBytes(toHash));
 			}
-			return list;
-        }
 
-		public List<Transaction> SearchForTransactionsFromIndex(string text, string key)
-		{
-			string recieved = "";
-			string sent = "";
-			decimal amount = 0;
-			string desc = "";
+			string toReturn = BitConverter.ToString(hashBytes).Replace("-", "");
+			return toReturn.Substring(0,15);
 
-			List<Transaction> list = new List<Transaction>();
-			/*
-			 * Using arbitrary delimiters the mathematical symbols are used 
-			 * to distinguish the different strings as data types:
-			 * up till - is the receiver of the transaction
-			 * from - to + is the sender 
-			 * from + to * is the description 
-			 * from * to % is the amount
-			 * the % symbol is the end of the transaction
-			*/
-
-			while (text.Contains($"%"))
-			{
-				if (text.Substring(0, text.IndexOf("+")).Contains(key))
-				{
-					recieved = text.Substring(0, text.IndexOf("-"));
-					sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);
-					desc = text.Substring(text.IndexOf("+") + 1, text.IndexOf("*") - text.IndexOf("+") - 1);
-					amount = Decimal.Parse(text.Substring(text.IndexOf("*") + 1, text.IndexOf("%") - text.IndexOf("*") - 1));
-					list.Add(new Transaction(sent, recieved, amount, desc));
-				}
-				text = text.Substring(text.IndexOf("%") + 1);
-			}
-			return list;
-		}
-
-		public List<Transaction> SearchForTransactionsFromPointerIndex(string text, string key)
-		{
-			string recieved = "";
-			string sent = "";
-			decimal amount = 0;
-			string desc = "";
-
-			List<Transaction> list = new List<Transaction>();
-			while (text.Contains($"{key}"))
-			{
-				if (text.Substring(0, text.IndexOf("+")).Contains(key))
-				{
-					recieved = text.Substring(0, text.IndexOf("-"));
-					sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);
-					desc = text.Substring(text.IndexOf("+") + 1, text.IndexOf("*") - text.IndexOf("+") - 1);
-					amount = Decimal.Parse(text.Substring(text.IndexOf("*") + 1, text.IndexOf("%") - text.IndexOf("*") - 1));
-					list.Add(new Transaction(sent, recieved, amount, desc));
-				}
-				text = text.Substring(text.IndexOf("%") + 1);
-			}
-			return list;
 		}
 
 		public List<Transaction> ExperimentalSearchForTransactions(string text, string key)
@@ -177,32 +106,6 @@ namespace CSharpChainModel
 			return users;
         }
 		
-		
-		public List<string> GetUsersFromText(string text, List<string> users)
-        {
-			string recieved = "";
-			string sent = "";
-			
-
-            while (text.Contains("+")){
-
-                recieved = text.Substring(0, text.IndexOf("-"));
-                if (!users.Contains(recieved))
-                {
-					users.Add(recieved);
-                }
-                sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);
-				
-				if (!users.Contains(sent))
-                {
-					users.Add(sent);
-				}		
-				
-				text = text.Substring(text.IndexOf("%") + 1);
-            }
-			return users;
-		}
-
 		public List<string> PartialGetUserCountFromText(string text)
 		{
 			string recieved = "";
@@ -218,28 +121,6 @@ namespace CSharpChainModel
 
 				text = text.Substring(text.IndexOf("%") + 1);
 			}
-			return users;
-		}
-
-		public HashSet<string> GetUsersForPointerIndex(Block block)
-        {
-			HashSet<string> users = new HashSet<string>();
-			foreach (Transaction trans in block.Transactions)
-			{
-                if (trans.ReceiverAddress == "System2" || trans.ReceiverAddress == "SYSTEM")
-                {
-
-                }else if (trans.SenderAddress == "System2" || trans.SenderAddress == "SYSTEM")
-                {
-
-                }else
-                {
-					users.Add(trans.ReceiverAddress);
-					users.Add(trans.SenderAddress);
-				}
-				
-			}
-
 			return users;
 		}
 
@@ -302,3 +183,12 @@ namespace CSharpChainModel
 	}
     }
 
+/*
+			 * Using arbitrary delimiters the mathematical symbols are used 
+			 * to distinguish the different strings as data types:
+			 * up till - is the receiver of the transaction
+			 * from - to + is the sender 
+			 * from + to * is the description 
+			 * from * to % is the amount
+			 * the % symbol is the end of the transaction
+			*/

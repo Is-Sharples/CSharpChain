@@ -17,7 +17,7 @@ namespace CSharpChainModel
             string sent = "";
             decimal amount = 0;
             string desc = "";
-
+            string hash = "";
 
             string result = from.Replace("Transactions:", "");
             while (result.Contains("%"))
