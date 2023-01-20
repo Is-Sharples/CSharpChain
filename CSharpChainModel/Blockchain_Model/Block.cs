@@ -16,7 +16,7 @@ namespace CSharpChainModel
 		[FieldFixedLength(8)]
 		[FieldConverter(ConverterKind.Date, "ddMMyyyy")]
 		public DateTime TimeStamp;
-		[FieldFixedLength(12142)]
+		[FieldFixedLength(37742)]
 		[FieldConverter(typeof (TransactionsConvertor))]
 		public List<Transaction> Transactions;
 		[FieldFixedLength(64)]

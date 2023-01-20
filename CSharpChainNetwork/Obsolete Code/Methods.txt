@@ -67,29 +67,6 @@
 		}
 
 		--------------------------------
-		public HashSet<string> GetUsersForPointerIndex(Block block)
-        {
-			HashSet<string> users = new HashSet<string>();
-			foreach (Transaction trans in block.Transactions)
-			{
-                if (trans.ReceiverAddress == "System2" || trans.ReceiverAddress == "SYSTEM")
-                {
-
-                }else if (trans.SenderAddress == "System2" || trans.SenderAddress == "SYSTEM")
-                {
-
-                }else
-                {
-					users.Add(trans.ReceiverAddress);
-					users.Add(trans.SenderAddress);
-				}
-				
-			}
-
-			return users;
-		}
-
-		---------------------
 
 
 		public List<string> GetUsersFromText(string text, List<string> users)

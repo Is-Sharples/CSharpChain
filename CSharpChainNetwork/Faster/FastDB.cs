@@ -59,12 +59,27 @@ namespace CSharpChainNetwork.Faster
             return output;
         }
 
-        public void Upsert(string key, string value)
+        public void Upsert(string key, string value, bool one)
         {
             var funcs = new SimpleFunctions<string, string>((a, b) => a + b);
             using (var session = store.NewSession(funcs))
             {
                 session.Upsert(ref key, ref value);
+                //Console.WriteLine("Taking full checkpoint");
+                if (one)
+                {
+                    store.TryInitiateFullCheckpoint(out _, CheckpointType.Snapshot);
+                    store.CompleteCheckpointAsync().AsTask().GetAwaiter().GetResult();
+                }
+                
+            };
+        }
+
+        public void TakeCheckPoint()
+        {
+            var funcs = new SimpleFunctions<string, string>((a, b) => a + b);
+            using (var session = store.NewSession(funcs))
+            {
                 Console.WriteLine("Taking full checkpoint");
                 store.TryInitiateFullCheckpoint(out _, CheckpointType.Snapshot);
                 store.CompleteCheckpointAsync().AsTask().GetAwaiter().GetResult();

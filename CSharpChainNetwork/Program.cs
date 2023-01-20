@@ -26,8 +26,8 @@ namespace CSharpChainNetwork
 		static string baseAddress;
 		public static BlockchainServices blockchainServices;
 		public static NodeServices nodeServices;
-		static int blockSize = 12288;
-		static long longBlockSize = 12288;
+		static int blockSize = 37888;
+		static long longBlockSize = 37888;
 		static bool useNetwork = true;
 		static int maxUsers = 2000;
 		static Transaction utilities = new Transaction();
@@ -218,16 +218,12 @@ namespace CSharpChainNetwork
 							break;
 						case "faster":
 							var temp = new FastDB("C:/temp/FASTER");
-							temp.SearchForValueWith("1");
-							temp.SearchForValueWith("222");
-							temp.Upsert("222","transaction-5");
-							temp.SearchForValueWith("222");
+							temp.SearchForValueWith("0BCA55962FB0111");
 							break;
 						case "t":
-							HashSet<string> temper = new HashSet<string>();
-							for(int i = 0; i < 512; i++)
-								temper.Add(new Transaction("3000","4000",i,"desc").Hash());
-							Console.WriteLine(temper.Count);
+							
+							new Transaction("3000","4000",300,"desc").Hash("heheheVERYLONGSTRING");
+							
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -290,7 +286,7 @@ namespace CSharpChainNetwork
 				{
 					stream.Seek(blockNum * longBlockSize, SeekOrigin.Begin);
 					string temp = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
-					temp = temp.Substring(85, 12129);
+					temp = temp.Substring(85, 37803);
 					//List<Transaction> res = utils.SearchForTransactionsFromIndex(temp, key);
 					List<Transaction> res = utils.ExperimentalSearchForTransactions(temp, key);
 					Transactions.AddRange(res);
@@ -309,7 +305,7 @@ namespace CSharpChainNetwork
 					{
 						stream.Seek(blockNum * longBlockSize, SeekOrigin.Begin);
 						string stringResult = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
-						stringResult = stringResult.Substring(85, 12129);
+						stringResult = stringResult.Substring(85, 37803);
 						//List<Transaction> result = utils.SearchForTransactionsFromIndex(stringResult, key);
 						List<Transaction> result = utils.ExperimentalSearchForTransactions(stringResult,key);
 						Transactions.AddRange(result);
@@ -354,7 +350,7 @@ namespace CSharpChainNetwork
 						
 						stream.Seek(i * longBlockSize, SeekOrigin.Begin);
 						string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
-						blockData = blockData.Substring(85, 12129);
+						blockData = blockData.Substring(85, 37803);
 						//parse from transactions characters to transactional data and store in list
 						//List<UserTransaction> result = utilities.SearchForTransactions(blockData, key, i);
 						List<Transaction> result = utilities.ExperimentalSearchForTransactions(blockData,key);
@@ -899,7 +895,7 @@ namespace CSharpChainNetwork
 			{
 				readStream.Seek(i * blockSize, SeekOrigin.Begin);
 				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
-				blockData = blockData.Substring(85, 12129);
+				blockData = blockData.Substring(85, 37803);
 				Dictionary<string, char> result = utilities.GetUsersForIndex(blockData, users);
 				Console.WriteLine($"Progress: {i}/{fileLength / blockSize}");
 
@@ -955,17 +951,16 @@ namespace CSharpChainNetwork
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
 			int transNo = 512;
-			int blockNo = blocks;
+			Dictionary<Block, long> toFasterIndex = new Dictionary<Block, long>();
 			Random rnd = new Random();
 			List<Block> newBlocks = new List<Block>();
 			IWeightedRandomizer<string> amountRandomizer = new DynamicWeightedRandomizer<string>();
 			amountRandomizer.Add("+", 6);
 			amountRandomizer.Add("-", 4);
-			//Creating Transactions
 			HashSet<string> tempUsers;
 			Block block;
 			Dictionary<string, int> foundUserLocs;
-			for (int i = 0; i < transNo * blockNo; i++)
+			for (int i = 0; i < transNo * blocks; i++)
 			{
 				string[] amountValue = new string[2];
 				amountValue[0] = amountRandomizer.NextWithReplacement();
@@ -987,20 +982,40 @@ namespace CSharpChainNetwork
 				{
 					block = CommandBlockchainMine("System2");
 					newBlocks.Add(block);
+					//tempUsers = util.GetUsersForPointerIndex(block);
+					//index.AppendIndex(tempUsers,BlockLength);
+					toFasterIndex.Add(block,BlockLength);
+					
 					BlockLength++;
 				}
 			}
 			block = CommandBlockchainMine("System2");
 			newBlocks.Add(block);
+			toFasterIndex.Add(block, BlockLength);
+			//tempUsers = util.GetUsersForPointerIndex(block);
+			//index.AppendIndex(tempUsers,BlockLength);
 			WriteFromFixedLengthToBinary("temp");
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();
 			Console.WriteLine("Updating SQLite...");
+			UpsertIntoKVS(toFasterIndex);
 			InternalAppendSQLiteIndex(newBlocks.ToArray());
 			Console.WriteLine("Finished!!");
 			timer.Stop();
 			//indexUtil.SortFirstSeen();
 		}
+
+		static void UpsertIntoKVS(Dictionary<Block,long> kvps)
+        {
+			FastDB faster = new FastDB("C:/temp/FASTER");
+			Console.WriteLine("Updating KVS");
+            foreach (KeyValuePair<Block,long> kvp in kvps)
+            {
+				string key = kvp.Key.PreviousHash.Substring(0, 15);
+				faster.Upsert(key, kvp.Value.ToString(),false);
+			}
+			faster.TakeCheckPoint();
+        }
 
 		static void GetFrequencyDistribution()
 		{
@@ -1018,7 +1033,7 @@ namespace CSharpChainNetwork
 			{
 				readStream.Seek(i * blockSize, SeekOrigin.Begin);
 				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
-				blockData = blockData.Substring(85, 12129);
+				blockData = blockData.Substring(85, 37803);
 				List<string> result = utilities.PartialGetUserCountFromText(blockData);
 
 				InternalShowProgress(i,fileLength/blockSize);
@@ -1087,7 +1102,7 @@ namespace CSharpChainNetwork
 			StreamWriter writer = new StreamWriter($"C:/temp/BlockList/{key}.csv");
 			Stopwatch timer = new Stopwatch();
 			decimal amount = 0;
-
+			List<Transaction> result = new List<Transaction>();
 			if (key == "-")
 			{
 				Console.WriteLine("Invalid Token Inputted");
@@ -1095,7 +1110,7 @@ namespace CSharpChainNetwork
 			else
 			{
 				timer.Start();
-				List<Transaction> result = InternalSeekTransactionsFromFile(key.Trim());
+				result = InternalSeekTransactionsFromFile(key.Trim());
 				List<int> foundInBlocks = new List<int>();
 
 
@@ -1122,6 +1137,15 @@ namespace CSharpChainNetwork
 			}
 			timer.Stop();
 			writer.Close();
+
+            if (showAll == "true")
+            {
+                foreach (Transaction trans in result)
+                {
+					Console.WriteLine(trans);
+					showLine();
+                }
+            }
 
 			return timer.Elapsed;
 		}
@@ -1452,7 +1476,7 @@ namespace CSharpChainNetwork
 		//obsolete
 		static void CommandBlockchainUpdate()
 		{
-			Console.WriteLine($"  Updating blockchain with the longest found on network.");
+			Console.WriteLine($"Updating blockchain with the longest found on network.");
 			if (useNetwork)
 			{
 				NetworkBlockchainUpdate();
@@ -1471,6 +1495,7 @@ namespace CSharpChainNetwork
 		static void CommandTransactionsAdd(string SenderAddress, string ReceiverAddress, string Amount, string Description)
 		{
 			Transaction transaction = new Transaction(SenderAddress, ReceiverAddress, Decimal.Parse(Amount), Description);
+			transaction.Hash(blockchainServices.Blockchain.Chain.Last().Hash);
 			blockchainServices.AddTransaction(transaction);
 			Console.WriteLine($"  {Amount} from {SenderAddress} to {ReceiverAddress} transaction added to list of pending transactions.");
 			Console.WriteLine("");

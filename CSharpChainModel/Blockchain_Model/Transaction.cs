@@ -19,7 +19,8 @@ namespace CSharpChainModel
 		public decimal Amount;
 		[FieldFixedLength(10)]
 		public string Description;
-		
+		[FieldFixedLength(35)]
+		public string hash;
 
 		public Transaction(string senderAddress, string receiverAddress, decimal amount, string description)
 		{
@@ -28,7 +29,14 @@ namespace CSharpChainModel
 			this.Amount = amount;
 			this.Description = description;
 		}
-
+		public Transaction(string senderAddress, string receiverAddress, decimal amount, string description, string hash)
+		{
+			this.SenderAddress = senderAddress;
+			this.ReceiverAddress = receiverAddress;
+			this.Amount = amount;
+			this.Description = description;
+			this.hash = hash;
+		}
 		public Transaction()
         {
 
@@ -42,19 +50,20 @@ namespace CSharpChainModel
 				$"Description: {this.Description} ";
 		}
 
-		public string Hash()
+		public void Hash(string lastHash)
         {
 			
 			string toHash = $"{ReceiverAddress}{SenderAddress}{Description}{Amount}";
-
+			StringBuilder hashString = new StringBuilder(lastHash.Substring(0, 15));
+			hashString.Append('&');
 			Byte[] hashBytes;
 			using (var algorithm = SHA1.Create())
 			{
 				hashBytes = algorithm.ComputeHash(Encoding.ASCII.GetBytes(toHash));
 			}
 
-			string toReturn = BitConverter.ToString(hashBytes).Replace("-", "");
-			return toReturn.Substring(0,15);
+			hashString.Append(BitConverter.ToString(hashBytes).Replace("-", "").Substring(0, 15));
+			hash = hashString.ToString();
 
 		}
 
@@ -65,18 +74,18 @@ namespace CSharpChainModel
 			decimal amount = 0;
 
 			List<Transaction> list = new List<Transaction>();
-			List<string >arr = text.Split('%').ToList<string>();
+			List<string >arr = text.Split(']').ToList<string>();
 			arr.RemoveAt(arr.Count-1);
             foreach (string trans in arr)
             {
 				int plus = trans.IndexOf('+');
 				if (trans.Substring(0,plus).Contains(key))
                 {
-					int minus = trans.IndexOf('-');
+					int minus = trans.IndexOf('@');
 					int times = trans.IndexOf('*');
 					recieved = trans.Substring(0,minus);
 					sent = trans.Substring(minus+1,plus-(minus+1));
-					amount = decimal.Parse(trans.Substring(times+1));
+					amount = decimal.Parse(trans.Substring(times + 1, trans.IndexOf('[') - (times + 1)));
 					list.Add(new Transaction(sent,recieved,amount,""));
                 }
             }
@@ -153,15 +162,20 @@ namespace CSharpChainModel
 			string sent = "";
 			Dictionary<string, char> result = new Dictionary<string, char>();
 			HashSet<string> tempList = new HashSet<string>();
-			while (text.Contains("+"))
-			{
-				recieved = text.Substring(0, text.IndexOf("-"));
-				sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);
-				tempList.Add(recieved);
-				tempList.Add(sent);
 
-				text = text.Substring(text.IndexOf("%") + 1);
-			}
+			string[] transString = text.Split(']');
+			
+            foreach (string item in transString)
+            {
+				int at = item.IndexOf('@');
+				int plus = item.IndexOf('+');
+                if (at > 0)
+                {
+					tempList.Add(item.Substring(0, at));
+					tempList.Add(item.Substring(at + 1, plus - (at + 1)));
+				}
+				
+            }
 
             foreach (User item in masterUsers)
             {
@@ -178,6 +192,30 @@ namespace CSharpChainModel
 			tempList.CopyTo(users);
 
 			return result;
+		}
+
+		public HashSet<string> GetUsersForPointerIndex(Block block)
+		{
+			HashSet<string> users = new HashSet<string>();
+			foreach (Transaction trans in block.Transactions)
+			{
+				if (trans.ReceiverAddress == "System2" || trans.ReceiverAddress == "SYSTEM")
+				{
+
+				}
+				else if (trans.SenderAddress == "System2" || trans.SenderAddress == "SYSTEM")
+				{
+
+				}
+				else
+				{
+					users.Add(trans.ReceiverAddress);
+					users.Add(trans.SenderAddress);
+				}
+
+			}
+
+			return users;
 		}
 
 	}

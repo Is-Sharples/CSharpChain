@@ -12,7 +12,6 @@ namespace CSharpChainModel
         public override object StringToField(string from)
         {
             List<Transaction> list = new List<Transaction>();
-            int identifier = 1;
             string recieved = "";
             string sent = "";
             decimal amount = 0;
@@ -20,35 +19,26 @@ namespace CSharpChainModel
             string hash = "";
 
             string result = from.Replace("Transactions:", "");
-            while (result.Contains("%"))
+
+            string[] resultArray = result.Split(']');
+
+            foreach (string item in resultArray)
             {
-                switch (identifier)
+
+                int minus = item.IndexOf('@');
+                int plus = item.IndexOf('+');
+                int times = item.IndexOf('*');
+                int open = item.IndexOf('[');
+                if (minus < 0)
                 {
-                    case 1:
-                        recieved = result.Substring(0, result.IndexOf("-"));
-                        identifier++;
-                        result = result.Substring(result.IndexOf("-") + 1);
-                        break;
-                    case 2:
-                        sent = result.Substring(0, result.IndexOf("+"));
-                        identifier++;
-                        result = result.Substring(result.IndexOf("+") + 1);
-                        break;
-                    case 3:
-                        desc = result.Substring(0, result.IndexOf("*"));
-                        identifier++;
-                        result = result.Substring(result.IndexOf("*") + 1);
-                        break;
-                    case 4:
-                        amount = Decimal.Parse(result.Substring(0, result.IndexOf("%")));
-                        identifier = 1;
-                        result = result.Substring(result.IndexOf("%") + 1);
-                        list.Add(new Transaction(sent, recieved, amount, desc));
-
-                        break;
+                    break;
                 }
-
-                //Console.WriteLine(result);
+                recieved = item.Substring(0,minus);
+                sent = item.Substring(minus + 1,plus - minus);
+                desc = item.Substring(plus + 1,times - plus-1);
+                amount = Decimal.Parse(item.Substring(times + 1,open - times -1 ));
+                hash = item.Substring(open+1);
+                list.Add(new Transaction(sent,recieved,amount,desc,hash));
             }
 
             return list;
@@ -57,19 +47,22 @@ namespace CSharpChainModel
         public override string FieldToString(object from)
         {
             List<Transaction> list = (List<Transaction>)from;
-            string transactions = "Transactions:";
+            StringBuilder transactions = new StringBuilder("Transactions:");
             foreach(Transaction item in list)
             {
-                transactions += item.ReceiverAddress + "-";
-                transactions += item.SenderAddress + "+";
-                transactions += item.Description + "*";
-                transactions += item.Amount + "%";
+                transactions.Append(item.ReceiverAddress);
+                transactions.Append('@');
+                transactions.Append(item.SenderAddress);
+                transactions.Append('+');
+                transactions.Append(item.Description);
+                transactions.Append('*');
+                transactions.Append(item.Amount);
+                transactions.Append('[');
+                transactions.Append(item.hash);
+                transactions.Append(']');
             }
 
-
-
-
-            return transactions;
+            return transactions.ToString();
         }
     }
 }

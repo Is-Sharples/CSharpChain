@@ -44,7 +44,7 @@ namespace CSharpChainModel
 			Stream stream = File.Open("C:/temp/Master.dat", FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
 			var engine = new FileHelperEngine<Block>();
-			int blockSize = 12288;
+			int blockSize = 37888;
 
 			stream.Seek(-blockSize, SeekOrigin.End);
 			string tempString = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
