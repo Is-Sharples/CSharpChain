@@ -191,7 +191,7 @@ namespace CSharpChainNetwork
 							timer.Start();
                             for (int i = 0; i < int.Parse(command[1]); i++)
                             {
-								GenerateBlocks(10000);
+								GenerateBlocks(1000);
 								Console.WriteLine($"finished loop:{i}");
 							}
 							Console.WriteLine($"Time Taken for {command[1]} blocks: {timer.Elapsed}");
@@ -982,9 +982,9 @@ namespace CSharpChainNetwork
 				{
 					block = CommandBlockchainMine("System2");
 					newBlocks.Add(block);
-					//tempUsers = util.GetUsersForPointerIndex(block);
+					tempUsers = util.GetUsersForPointerIndex(block);
 					//index.AppendIndex(tempUsers,BlockLength);
-					toFasterIndex.Add(block,BlockLength);
+					//toFasterIndex.Add(block,BlockLength);
 					
 					BlockLength++;
 				}
@@ -1251,11 +1251,11 @@ namespace CSharpChainNetwork
 			BinaryReader reader = new BinaryReader(stream,Encoding.ASCII);
 			Transaction utils = new Transaction();
 			List<Transaction> transactions = new List<Transaction>();
-
+			
 			foreach (string loc in locations)
             {
 				stream.Seek((long.Parse(loc)  * blockSize) + 85,SeekOrigin.Begin);
-				string blockData = Encoding.ASCII.GetString(reader.ReadBytes(12044));
+				string blockData = Encoding.ASCII.GetString(reader.ReadBytes(37657));
 				List<Transaction> result = utils.ExperimentalSearchForTransactions(blockData, key);
 				transactions.AddRange(result);
 			}

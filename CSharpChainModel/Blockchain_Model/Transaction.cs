@@ -101,11 +101,11 @@ namespace CSharpChainModel
 		public HashSet<string> GetUsersForPointerIndex(string text)
         {
 			HashSet<string> users = new HashSet<string>();
-			List<string> arr = text.Split('%').ToList<string>();
+			List<string> arr = text.Split(']').ToList<string>();
 			arr.RemoveAt(arr.Count - 1);
             foreach (string trans in arr)
             {
-				int minus = trans.IndexOf('-');
+				int minus = trans.IndexOf('@');
 				int plus = trans.IndexOf('+');
 				users.Add(trans.Substring(0, minus));
 				users.Add(trans.Substring(minus + 1, plus - minus-1));
@@ -129,7 +129,6 @@ namespace CSharpChainModel
 					users.Add(item.Substring(0, at));
 					users.Add(item.Substring(at + 1, plus - (at + 1)));
 				}
-
 			}
 			return users;
 		}

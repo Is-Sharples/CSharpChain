@@ -66,7 +66,7 @@ namespace CSharpChainNetwork.PointerIndex
             {
                 Console.WriteLine($"{i}/{fileLength}");
                 reader.BaseStream.Seek((i * blocksize) + 85,SeekOrigin.Begin);
-                string blockData = Encoding.ASCII.GetString(reader.ReadBytes(12044));
+                string blockData = Encoding.ASCII.GetString(reader.ReadBytes(37657));
                 HashSet<string> users = util.GetUsersForPointerIndex(blockData);
                 foreach (string user in users)
                 {
