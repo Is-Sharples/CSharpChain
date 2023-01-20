@@ -218,7 +218,7 @@ namespace CSharpChainNetwork
 							break;
 						case "faster":
 							var temp = new FastDB("C:/temp/FASTER");
-							temp.SearchForValueWith("0BCA55962FB0111");
+							temp.SearchForValueWith($"{command[1].Trim().ToUpper()}");
 							break;
 						case "t":
 							

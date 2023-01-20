@@ -117,18 +117,19 @@ namespace CSharpChainModel
 		
 		public List<string> PartialGetUserCountFromText(string text)
 		{
-			string recieved = "";
-			string sent = "";
 			List<string> users = new List<string>();
+			string[] array = text.Split(']');
 
-			while (text.Contains("+"))
+			foreach (string item in array)
 			{
-				recieved = text.Substring(0, text.IndexOf("-"));
-				sent = text.Substring(text.IndexOf("-") + 1, text.IndexOf("+") - text.IndexOf("-") - 1);
-				users.Add(recieved);
-				users.Add(sent);
+				int at = item.IndexOf('@');
+				int plus = item.IndexOf('+');
+				if (at > 0)
+				{
+					users.Add(item.Substring(0, at));
+					users.Add(item.Substring(at + 1, plus - (at + 1)));
+				}
 
-				text = text.Substring(text.IndexOf("%") + 1);
 			}
 			return users;
 		}
@@ -158,8 +159,6 @@ namespace CSharpChainModel
 
 		public Dictionary<string,char> GetUsersForIndex(string text, User[] masterUsers)
 		{
-			string recieved = "";
-			string sent = "";
 			Dictionary<string, char> result = new Dictionary<string, char>();
 			HashSet<string> tempList = new HashSet<string>();
 
