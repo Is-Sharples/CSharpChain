@@ -11,15 +11,15 @@ namespace CSharpChainNetwork.Faster
     {
         FasterKVSettings<string, string> config;
         FasterKV<string, string> store;
+        
+
+
        public FastDB(string path)
         {
             //"C:/temp/FASTER"
             
             config = new FasterKVSettings<string, string>(path) { TryRecoverLatest = true};
             store = new FasterKV<string, string>(config);
-
-            
-            
         }
 
         public void Destroy()
@@ -28,8 +28,9 @@ namespace CSharpChainNetwork.Faster
             config.Dispose();
         }
 
-        public string SearchForValueWith(string key)
+        public string SearchForTransaction(string key)
         {
+            key = key.Substring(0,key.IndexOf('&'));
             string output = "";
             var funcs = new SimpleFunctions<string, string>((a, b) => a + b);
             var session = store.NewSession(funcs);
@@ -48,6 +49,38 @@ namespace CSharpChainNetwork.Faster
                         output = iter.Current.Output;
                         Console.WriteLine(iter.Current.Output);
                     }  
+                    else
+                        Console.WriteLine("Not Found in Iter");
+                }
+                iter.Dispose();
+            }
+            else
+                Console.WriteLine("Not Found");
+            session.Dispose();
+            return output;
+        }
+
+        public string SearchForKey(string key)
+        {
+            string output = "";
+            var funcs = new SimpleFunctions<string, string>((a, b) => a + b);
+            var session = store.NewSession(funcs);
+            if (Exists(store))
+                Console.WriteLine($"Recovered from Snapshot");
+
+            store.Log.FlushAndEvict(true);
+            var status = session.Read(ref key, ref output);
+            if (status.IsPending)
+            {
+                session.CompletePendingWithOutputs(out var iter, true);
+
+                while (iter.Next())
+                {
+                    if (iter.Current.Status.Found)
+                    {
+                        output = iter.Current.Output;
+                        Console.WriteLine(iter.Current.Output);
+                    }
                     else
                         Console.WriteLine("Not Found in Iter");
                 }
@@ -83,6 +116,16 @@ namespace CSharpChainNetwork.Faster
                 Console.WriteLine("Taking full checkpoint");
                 store.TryInitiateFullCheckpoint(out _, CheckpointType.Snapshot);
                 store.CompleteCheckpointAsync().AsTask().GetAwaiter().GetResult();
+            };
+        }
+
+        public void Update(string key,string input)
+        {
+            var funcs = new SimpleFunctions<string, string>((a, b) => a + b);
+            using (var session = store.NewSession(funcs))
+            {
+                session.RMW(ref key,ref input);
+                
             };
         }
 

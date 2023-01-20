@@ -20,7 +20,8 @@ namespace CSharpChainNetwork
 {
 	static class Program
 	{
-		
+		static string fastWallets = "C:/temp/FASTER/wallets";
+		static string fastTrans = "C:/temp/FASTER/transactions";
 		static string database = "C:/temp/SQLite/blockchain";
 		static string master = "C:/temp/Master.dat";
 		static string baseAddress;
@@ -216,14 +217,26 @@ namespace CSharpChainNetwork
 						case "runtest":
 							RunTimeTests(command[1]);
 							break;
-						case "faster":
-							var temp = new FastDB("C:/temp/FASTER");
-							temp.SearchForValueWith($"{command[1].Trim().ToUpper()}");
+						case "ftrans":
+							var temp = new FastDB(fastTrans);
+							temp.SearchForTransaction($"{command[1].Trim().ToUpper()}");
 							break;
 						case "t":
-							
-							new Transaction("3000","4000",300,"desc").Hash("heheheVERYLONGSTRING");
-							
+							var test = new FastDB("C:/temp/FASTER/test");
+							//test.Upsert("1234","tellMeWhy",true);
+							Console.WriteLine(test.SearchForKey("1234"));
+							test.Update("1234","MASTER,");
+							test.TakeCheckPoint();
+							Console.WriteLine(test.SearchForKey("1234"));
+							break;
+						case "testkvs":
+							//GenerateWalletKVS();
+							var tester = new FastDB(fastWallets);
+							string temper = tester.SearchForKey("3500");
+							string[] array = temper.Split(',');
+							Decimal ammount = InternalSearchBlockLocationsForPointerIndex(array,"3500");
+							Console.WriteLine($"Wallet Balance:{ammount}");
+
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -419,6 +432,34 @@ namespace CSharpChainNetwork
 			timer.Stop();
 			sql.CloseConnection();
 		}
+
+		static void InternalAppendKVSWalletIndex(Dictionary<Block, long> kvs)
+        {
+			Transaction util = new Transaction();
+			var faster = new FastDB(fastWallets);
+            foreach (KeyValuePair<Block,long> kvp in kvs)
+            {
+				HashSet<string> tempUsers = util.GetUsersForPointerIndex(kvp.Key);
+                foreach (string user in tempUsers)
+                {
+					faster.Update(user,$"{kvp.Value},");
+                }
+            }
+			faster.TakeCheckPoint();
+			faster.Destroy();
+
+        }
+
+		static void GenerateWalletKVS()
+        {
+			User[] users = masterUsers;
+			var faster = new FastDB(fastWallets);
+			foreach (User user in users)
+            {
+				faster.Upsert(user.name,"",false);
+            }
+			faster.TakeCheckPoint();
+        }
 
         #endregion
 
@@ -982,9 +1023,9 @@ namespace CSharpChainNetwork
 				{
 					block = CommandBlockchainMine("System2");
 					newBlocks.Add(block);
-					tempUsers = util.GetUsersForPointerIndex(block);
+					//tempUsers = util.GetUsersForPointerIndex(block);
 					//index.AppendIndex(tempUsers,BlockLength);
-					//toFasterIndex.Add(block,BlockLength);
+					toFasterIndex.Add(block,BlockLength);
 					
 					BlockLength++;
 				}
@@ -998,16 +1039,17 @@ namespace CSharpChainNetwork
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();
 			Console.WriteLine("Updating SQLite...");
-			UpsertIntoKVS(toFasterIndex);
+			UpsertIntoKVSTransaction(toFasterIndex);
+			InternalAppendKVSWalletIndex(toFasterIndex);
 			InternalAppendSQLiteIndex(newBlocks.ToArray());
 			Console.WriteLine("Finished!!");
 			timer.Stop();
 			//indexUtil.SortFirstSeen();
 		}
 
-		static void UpsertIntoKVS(Dictionary<Block,long> kvps)
+		static void UpsertIntoKVSTransaction(Dictionary<Block,long> kvps)
         {
-			FastDB faster = new FastDB("C:/temp/FASTER");
+			FastDB faster = new FastDB(fastTrans);
 			Console.WriteLine("Updating KVS");
             foreach (KeyValuePair<Block,long> kvp in kvps)
             {
@@ -1016,6 +1058,7 @@ namespace CSharpChainNetwork
 			}
 			faster.TakeCheckPoint();
         }
+
 
 		static void GetFrequencyDistribution()
 		{
@@ -1254,10 +1297,14 @@ namespace CSharpChainNetwork
 			
 			foreach (string loc in locations)
             {
-				stream.Seek((long.Parse(loc)  * blockSize) + 85,SeekOrigin.Begin);
-				string blockData = Encoding.ASCII.GetString(reader.ReadBytes(37657));
-				List<Transaction> result = utils.ExperimentalSearchForTransactions(blockData, key);
-				transactions.AddRange(result);
+                if (loc.Trim() != "")
+                {
+					stream.Seek((long.Parse(loc) * blockSize) + 85, SeekOrigin.Begin);
+					string blockData = Encoding.ASCII.GetString(reader.ReadBytes(37657));
+					List<Transaction> result = utils.ExperimentalSearchForTransactions(blockData, key);
+					transactions.AddRange(result);
+				}
+
 			}
             
 			decimal amount = 0;
