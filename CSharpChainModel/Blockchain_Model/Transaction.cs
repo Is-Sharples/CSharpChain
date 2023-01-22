@@ -42,12 +42,13 @@ namespace CSharpChainModel
 
         }
 
-        public override String ToString()
+        public override string ToString()
         {
-			return $" Sender Address: {this.SenderAddress} \n " +
-				$"Receiver Address: {this.ReceiverAddress} \n " +
-				$"For the Amount: {this.Amount} \n " +
-				$"Description: {this.Description} ";
+			return $" Sender Address: {SenderAddress} \n " +
+				$"Receiver Address: {ReceiverAddress} \n " +
+				$"For the Amount: {Amount} \n " +
+				$"Description: {Description} " + 
+				$"Hash: {hash}";
 		}
 
 		public void Hash(string lastHash)

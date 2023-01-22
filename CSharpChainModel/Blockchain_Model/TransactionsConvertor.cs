@@ -24,7 +24,6 @@ namespace CSharpChainModel
 
             foreach (string item in resultArray)
             {
-
                 int minus = item.IndexOf('@');
                 int plus = item.IndexOf('+');
                 int times = item.IndexOf('*');
@@ -34,7 +33,7 @@ namespace CSharpChainModel
                     break;
                 }
                 recieved = item.Substring(0,minus);
-                sent = item.Substring(minus + 1,plus - minus);
+                sent = item.Substring(minus + 1,plus - minus - 1);
                 desc = item.Substring(plus + 1,times - plus-1);
                 amount = Decimal.Parse(item.Substring(times + 1,open - times -1 ));
                 hash = item.Substring(open+1);

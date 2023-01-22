@@ -1347,8 +1347,6 @@ namespace CSharpChainNetwork
 				showLine();
 				Console.WriteLine("No Transactions found");
 			}
-
-
 			reader.Close();
 			TimeSpan temp = timer.Elapsed;
 			Console.WriteLine($"Time Taken For Finding Locations:{temp}");
@@ -1517,10 +1515,20 @@ namespace CSharpChainNetwork
 			Console.WriteLine("");
 		}
 
-		static void CommandBlock(int Index)
+		static void CommandBlock(long index)
 		{
-			var block = blockchainServices.Block(Index);
-			Console.WriteLine($"  Block {Index}:");
+			Block block;
+			using (BinaryReader reader = new BinaryReader(File.OpenRead(master)))
+            {
+				reader.BaseStream.Seek(index * blockSize,SeekOrigin.Begin);
+				var engine = new FileHelperEngine<Block>();
+				Block[] temp = engine.ReadString(GetString(reader.ReadBytes(blockSize)));
+				block = temp[0];
+
+            }
+
+				//var block = blockchainServices.Block(Index);
+			Console.WriteLine($"  Block {index}:");
 			Console.WriteLine($"    Hash: {block.Hash}:");
 			Console.WriteLine($"    Nonce: {block.Nonce}:");
 			Console.WriteLine($"    Previous hash: {block.PreviousHash}:");
