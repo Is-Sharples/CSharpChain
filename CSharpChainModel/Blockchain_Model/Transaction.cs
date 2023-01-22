@@ -216,6 +216,16 @@ namespace CSharpChainModel
 			return users;
 		}
 
+		public string GetBlockHash(string data)
+        {
+			string blockHash;
+			int open = data.IndexOf('[');
+			int and = data.IndexOf('&');
+			blockHash = data.Substring(open + 1,and-(open+1));
+			return blockHash;
+        }
+
+
 	}
     }
 

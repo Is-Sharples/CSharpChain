@@ -192,7 +192,7 @@ namespace CSharpChainNetwork
 							timer.Start();
                             for (int i = 0; i < int.Parse(command[1]); i++)
                             {
-								GenerateBlocks(1000);
+								GenerateBlocks(10000);
 								Console.WriteLine($"finished loop:{i}");
 							}
 							Console.WriteLine($"Time Taken for {command[1]} blocks: {timer.Elapsed}");
@@ -218,25 +218,27 @@ namespace CSharpChainNetwork
 							RunTimeTests(command[1]);
 							break;
 						case "ftrans":
-							var temp = new FastDB(fastTrans);
-							temp.SearchForTransaction($"{command[1].Trim().ToUpper()}");
+							var temp = new FastDB(fastTrans,true);
+							temp.SearchForTransaction(GetBytes($"{command[1].Trim().ToUpper()}"));
 							break;
-						case "t":
-							var test = new FastDB("C:/temp/FASTER/test");
-							//test.Upsert("1234","tellMeWhy",true);
-							Console.WriteLine(test.SearchForKey("1234"));
-							test.Update("1234","MASTER,");
-							test.TakeCheckPoint();
-							Console.WriteLine(test.SearchForKey("1234"));
+						case "genkvs-wallet":
+							var test = new FastDB(fastWallets,true);
+							test.BuildWalletIndex(longBlockSize,master);
 							break;
-						case "testkvs":
-							//GenerateWalletKVS();
-							var tester = new FastDB(fastWallets);
-							string temper = tester.SearchForKey("3500");
+						case "genkvs-trans":
+							var tester = new FastDB(fastTrans, true);
+							tester.BuiltTransactionIndex(longBlockSize,master);
+							break;
+						case "kvs":
+							Stopwatch tajmer = new Stopwatch();
+							tajmer.Start();
+							var kvs = new FastDB(fastWallets,true);
+							string temper = kvs.SearchForKey(GetBytes(command[1]));
 							string[] array = temper.Split(',');
-							Decimal ammount = InternalSearchBlockLocationsForPointerIndex(array,"3500");
+							Decimal ammount = InternalSearchBlockLocationsForPointerIndex(array,command[1]);
 							Console.WriteLine($"Wallet Balance:{ammount}");
-
+							Console.WriteLine($"Time taken for KVS:{tajmer.Elapsed}");
+							tajmer.Stop();
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -389,6 +391,16 @@ namespace CSharpChainNetwork
 			return transactions;
 		}
 
+		#endregion
+
+		#region IndexGenerating
+
+
+		static void GenerateFileIndex()
+		{
+			PointerIndexV2 file = new PointerIndexV2();
+			file.GenerateIndexFromFile(master, blockSize);
+		}
 		static void InternalAppendSQLiteIndex(Block[] blocks)
 		{
 			Stopwatch timer = new Stopwatch();
@@ -401,7 +413,7 @@ namespace CSharpChainNetwork
 			{
 				user.locationCSV = sql.ReadDataForAppending("location", "users", $"WHERE wallet='{user.name}'", false);
 				user.locationCSV = InternalDecodeIndex(user.locationCSV);
-				
+
 			}
 
 			for (int i = 0; i < blocks.Length; i++)
@@ -418,9 +430,9 @@ namespace CSharpChainNetwork
 				}
 			}
 			//remember to clear locationCSV
-			foreach (User user in users) 
+			foreach (User user in users)
 			{
-				user.locationCSV += string.Join("",user.locationString);
+				user.locationCSV += string.Join("", user.locationString);
 				string temp = InternalIndexCreation(user.locationCSV);
 				sql.CustomCommand($"UPDATE users SET location = '{temp}' WHERE wallet='{user.name}'");
 				user.locationCSV = "";
@@ -434,38 +446,378 @@ namespace CSharpChainNetwork
 		}
 
 		static void InternalAppendKVSWalletIndex(Dictionary<Block, long> kvs)
-        {
+		{
 			Transaction util = new Transaction();
-			var faster = new FastDB(fastWallets);
-            foreach (KeyValuePair<Block,long> kvp in kvs)
-            {
+			var faster = new FastDB(fastWallets, true);
+			foreach (KeyValuePair<Block, long> kvp in kvs)
+			{
 				HashSet<string> tempUsers = util.GetUsersForPointerIndex(kvp.Key);
-                foreach (string user in tempUsers)
-                {
-					faster.Update(user,$"{kvp.Value},");
-                }
-            }
+				foreach (string user in tempUsers)
+				{
+					faster.Update(GetBytes(user), GetBytes($"{kvp.Value},"));
+				}
+			}
+			faster.TakeByteCheckPoint();
+			faster.Destroy(true);
+
+		}
+
+		static void UpsertIntoKVSTransaction(Dictionary<Block, long> kvps)
+		{
+			FastDB faster = new FastDB(fastTrans);
+			Console.WriteLine("Updating KVS");
+			foreach (KeyValuePair<Block, long> kvp in kvps)
+			{
+				Console.WriteLine(kvp.Value);
+				string key = kvp.Key.PreviousHash.Substring(0, 15);
+				faster.Upsert(key, kvp.Value.ToString(), false);
+			}
 			faster.TakeCheckPoint();
-			faster.Destroy();
+		}
 
-        }
+		static void GenerateSQLLite(bool primaryKey)
+		{
+			string tableName = "users";
+			string columns = "";
+			if (primaryKey)
+			{
+				columns = "(wallet TEXT PRIMARY KEY, location TEXT)";
+			}
+			else
+			{
+				columns = "(wallet TEXT, location TEXT)";
+			}
 
-		static void GenerateWalletKVS()
-        {
+			SQLiteController sQLite = new SQLiteController("C:/temp/SQLite/blockchain");
+
+			if (sQLite.CheckForTable(tableName))
+			{
+				sQLite.CreateTable(tableName, columns);
+			}
+			else
+			{
+				Console.WriteLine("Table Already Exists!");
+			}
+		}
+
+		static void GetLocationOfBlocks()
+		{
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
 			User[] users = masterUsers;
-			var faster = new FastDB(fastWallets);
+			Stream readStream = File.Open(master, FileMode.Open);
+			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
+			long fileLength = binReader.BaseStream.Length;
+			SQLiteController sql = new SQLiteController("C:/temp/SQLite/blockchain");
+
+			Console.WriteLine("Started Getting all locations of all users");
+			for (long i = 0; i < fileLength / blockSize; i++)
+			{
+				readStream.Seek(i * blockSize, SeekOrigin.Begin);
+				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
+				blockData = blockData.Substring(85, 37803);
+				Dictionary<string, char> result = utilities.GetUsersForIndex(blockData, users);
+				Console.WriteLine($"Progress: {i}/{fileLength / blockSize}");
+
+				//InternalShowProgress(i, fileLength / blockSize);
+
+				foreach (KeyValuePair<string, char> user in result)
+				{
+					if (user.Key != "SYSTEM")
+					{
+						if (user.Key != "System2")
+						{
+							int location = int.Parse(user.Key) - 3000;
+							users[location].locationString.Add(user.Value.ToString());
+						}
+					}
+				}
+			}
+
 			foreach (User user in users)
-            {
-				faster.Upsert(user.name,"",false);
-            }
-			faster.TakeCheckPoint();
-        }
+			{
 
-        #endregion
+				user.locationCSV = string.Join("", user.locationString);
+				user.locationString = new List<string>();
+				user.locationCSV = InternalIndexCreation(user.locationCSV);
+				sql.InsertData("users", $"(wallet, location) VALUES('{user.name}', '{user.locationCSV}')");
+			}
+			Console.WriteLine("Time Passed:" + timer.Elapsed.ToString());
+			timer.Stop();
+			readStream.Close();
+			binReader.Close();
 
-        #region read/write functions
+		}
 
-        static void InternalWriteToFixedLengthRecord(string text)
+		static void GeneratePointerIndexFromMaster()
+		{
+			PointerForIndex pointer = new PointerForIndex();
+			pointer.GenerateIndexFromFile(master, blockSize);
+
+
+		}
+
+		#region SQLiteIndexGeneration
+
+		static string InternalIndexCreation(string input)
+		{
+			string answer = string.Join("", InternalToLetters(input, new List<char>()));
+			answer = InternalConvertAb(InternalRunLengthEncodingOfValues(answer), new List<string>());
+			answer = InternalRunLengthEncodingOfAB(answer);
+			return answer;
+		}
+
+		static string InternalDecodeIndex(string index)
+		{
+			string temp = InternalInverseToLetters(InternalDecodeRuneLengthRemoveAB(InternalDecodeRunLengthRemoveNumbers(index)));
+			return temp;
+		}
+
+		static string InternalRunLengthEncodingOfValues(string input)
+		{
+			List<string> toReturn = new List<string>();
+			List<char> temp = new List<char>();
+			for (int i = 0; i < input.Length; i++)
+			{
+				if (temp.Count == 0)
+				{
+					temp.Add(input[i]);
+				}
+				else if (input[i] == temp[0])
+				{
+					temp.Add(input[i]);
+				}
+				else
+				{
+					int count = temp.Count;
+					string result;
+					if (count != 1)
+					{
+						result = $"{count}{temp[0]}";
+					}
+					else
+					{
+						result = $"{temp[0]}";
+					}
+					toReturn.Add(result);
+					temp = new List<char>();
+					temp.Add(input[i]);
+				}
+			}
+
+			if (temp.Count > 0)
+			{
+				string result;
+				if (temp.Count != 1)
+				{
+					result = $"{temp.Count}{temp[0]}";
+				}
+				else
+				{
+					result = $"{temp[0]}";
+				}
+				toReturn.Add(result);
+			}
+			return string.Join("", toReturn);
+		}
+
+		static string InternalRunLengthEncodingOfAB(string input)
+		{
+			List<string> toReturn = new List<string>();
+			List<char> temp = new List<char>();
+			for (int i = 0; i < input.Length; i++)
+			{
+				char current = input[i];
+				if (current == 'A' || current == 'B')
+				{
+					temp.Add(current);
+				}
+				else
+				{
+					if (temp.Count > 0)
+					{
+						if (current != temp[0])
+						{
+							if (temp.Count != 1)
+							{
+								int num = temp.Count;
+								toReturn.Add($"{num}{temp[0]}");
+							}
+							else
+							{
+								toReturn.Add($"{temp[0]}");
+							}
+							toReturn.Add(current.ToString());
+							temp = new List<char>();
+						}
+					}
+					else
+					{
+						toReturn.Add(current.ToString());
+					}
+
+				}
+			}
+			if (temp.Count > 0)
+			{
+				if (temp.Count != 1)
+				{
+					int num = temp.Count;
+					toReturn.Add($"{num}{temp[0]}");
+				}
+				else
+				{
+					toReturn.Add($"{temp[0]}");
+				}
+			}
+
+			return string.Join("", toReturn);
+		}
+
+		static List<char> InternalToLetters(string index, List<char> toReturn)
+		{
+
+			for (int i = 0; i < index.Length; i++)
+			{
+				switch (index[i])
+				{
+					case '0':
+						toReturn.Add('F');
+						break;
+					case '1':
+						toReturn.Add('T');
+						break;
+					default:
+						break;
+				}
+			}
+
+			return toReturn;
+		}
+
+		static string InternalInverseToLetters(string index)
+		{
+			List<char> toReturn = new List<char>();
+			for (int i = 0; i < index.Length; i++)
+			{
+				char current = index[i];
+				switch (current)
+				{
+					case 'T':
+						toReturn.Add('1');
+						break;
+					case 'F':
+						toReturn.Add('0');
+						break;
+					default:
+						break;
+				}
+			}
+
+			return string.Join("", toReturn);
+		}
+
+		static string InternalConvertAb(string index, List<string> toReturn)
+		{
+			List<char> digits = new List<char>();
+			for (int i = 0; i < index.Length; i++)
+			{
+				if (char.IsDigit(index[i]))
+				{
+					digits.Add(index[i]);
+
+				}
+				else if (!char.IsDigit(index[i]) && digits.Count > 0)
+				{
+
+					string num = string.Join("", digits);
+					toReturn.Add($"{num}{index[i]}");
+					digits = new List<char>();
+				}
+				else if (i < index.Length - 1 && index.Substring(i, 2) == "TF")
+				{
+					toReturn.Add("A");
+					i++;
+				}
+				else if (i < index.Length - 1 && index.Substring(i, 2) == "FT")
+				{
+					toReturn.Add("B");
+					i++;
+				}
+				else
+				{
+					toReturn.Add($"{index[i]}");
+				}
+			}
+
+			if (digits.Count > 0)
+			{
+				string num = string.Join("", digits);
+				toReturn.Add($"{num}{index[index.Length - 1]}");
+				digits = new List<char>();
+			}
+			return string.Join("", toReturn);
+		}
+
+		static string InternalDecodeRunLengthRemoveNumbers(string index)
+		{
+			List<string> toReturn = new List<string>();
+			List<char> digits = new List<char>();
+			for (int i = 0; i < index.Length; i++)
+			{
+				char current = index[i];
+				if (char.IsDigit(current))
+				{
+					digits.Add(current);
+				}
+				else if (!char.IsDigit(current) && digits.Count > 0)
+				{
+					string num = string.Join("", digits);
+					int number = int.Parse(num);
+					for (int j = 0; j < number; j++)
+					{
+						toReturn.Add($"{current}");
+					}
+					digits = new List<char>();
+				}
+				else
+				{
+					toReturn.Add(current.ToString());
+				}
+			}
+
+			return string.Join("", toReturn);
+		}
+
+		static string InternalDecodeRuneLengthRemoveAB(string index)
+		{
+			List<string> toReturn = new List<string>();
+			for (int i = 0; i < index.Length; i++)
+			{
+				char current = index[i];
+				if (current == 'A')
+				{
+					toReturn.Add("TF");
+				}
+				else if (current == 'B')
+				{
+					toReturn.Add("FT");
+				}
+				else
+				{
+					toReturn.Add(current.ToString());
+				}
+			}
+			return string.Join("", toReturn);
+		}
+
+		#endregion
+
+		#endregion
+
+		#region read/write functions
+
+		static void InternalWriteToFixedLengthRecord(string text)
         {
 			List<Block> list = blockchainServices.Blockchain.Chain;
 
@@ -591,244 +943,14 @@ namespace CSharpChainNetwork
 			Console.WriteLine("Length"+users.Length);
         }
 
-        #endregion
-
-        #region SQLiteIndexGeneration
-
-        static string InternalIndexCreation(string input)
+		static byte[] GetBytes(string input)
         {
-			string answer = string.Join("",InternalToLetters(input,new List<char>()));
-			answer = InternalConvertAb(InternalRunLengthEncodingOfValues(answer), new List<string>());
-			answer = InternalRunLengthEncodingOfAB(answer);
-			return answer;
-		}
-
-		static string InternalDecodeIndex(string index)
-        {
-			string temp = InternalInverseToLetters(InternalDecodeRuneLengthRemoveAB(InternalDecodeRunLengthRemoveNumbers(index)));
-			return temp;
-		}
-
-		static string InternalRunLengthEncodingOfValues(string input)
-        {
-			List<string> toReturn = new List<string>();
-			List<char> temp = new List<char>();
-			for(int i = 0; i< input.Length; i++)
-            {
-				if (temp.Count == 0)
-				{
-					temp.Add(input[i]);
-				} else if (input[i] == temp[0])
-				{
-					temp.Add(input[i]);
-				} else
-				{
-					int count = temp.Count;
-					string result;
-					if (count != 1)
-					{
-						result = $"{count}{temp[0]}";
-					} else
-					{
-						result = $"{temp[0]}";
-					}
-					toReturn.Add(result);
-					temp = new List<char>();
-					temp.Add(input[i]);
-				}	
-            }
-
-			if(temp.Count > 0)
-            {
-				string result;
-				if (temp.Count != 1)
-                {
-					result = $"{temp.Count}{temp[0]}";
-				}else
-                {
-					result = $"{temp[0]}";
-                }
-				toReturn.Add(result);
-            }
-			return string.Join("",toReturn);
+			return Encoding.ASCII.GetBytes(input);
         }
 
-		static string InternalRunLengthEncodingOfAB(string input)
+		static string GetString(byte [] input)
         {
-			List<string> toReturn = new List<string>();
-			List<char> temp = new List<char>();
-            for (int i = 0; i < input.Length; i++)
-            {
-				char current = input[i];
-                if (current == 'A' || current == 'B')
-                {
-					temp.Add(current);
-                }
-                else
-                {
-					if (temp.Count > 0)
-					{
-						if (current != temp[0])
-						{
-							if (temp.Count != 1)
-							{
-								int num = temp.Count;
-								toReturn.Add($"{num}{temp[0]}");
-							}
-							else
-							{
-								toReturn.Add($"{temp[0]}");
-							}
-							toReturn.Add(current.ToString());
-							temp = new List<char>();
-						}
-					}else
-                    {
-						toReturn.Add(current.ToString());
-                    }
-
-				}
-            }
-			if(temp.Count > 0)
-            {
-				if(temp.Count != 1)
-                {
-					int num = temp.Count;
-					toReturn.Add($"{num}{temp[0]}");
-                }else
-                {
-					toReturn.Add($"{temp[0]}");
-                }
-            }
-
-			return string.Join("",toReturn);
-        }
-
-		static List<char> InternalToLetters(string index, List<char> toReturn)
-        {
-
-            for (int i = 0; i < index.Length;i++)
-            {
-				switch (index[i])
-				{
-					case '0':
-						toReturn.Add('F');
-						break;
-					case '1':
-						toReturn.Add('T');
-						break;
-					default:
-						break;
-				}
-			}
-
-			return toReturn;
-        }
-
-		static string InternalInverseToLetters(string index)
-        {
-			List<char> toReturn = new List<char>();
-            for (int i = 0; i < index.Length; i++)
-            {
-				char current = index[i];
-                switch (current)
-                {
-					case 'T':
-						toReturn.Add('1') ;
-						break;
-					case 'F':
-						toReturn.Add('0');
-						break;
-					default:
-						break;
-                }
-            }
-
-			return string.Join("",toReturn);
-        }
-
-		static string InternalConvertAb(string index, List<string> toReturn)
-        {
-			List<char> digits = new List<char>();
-			for (int i = 0;i < index.Length; i++)
-            {
-                if (char.IsDigit(index[i]))
-                {
-					digits.Add(index[i]);
-					
-                }else if (!char.IsDigit(index[i]) && digits.Count > 0)
-                {
-					
-					string num = string.Join("",digits);
-					toReturn.Add($"{num}{index[i]}");
-					digits = new List<char>();
-                }else if (i <index.Length -1 &&  index.Substring(i,2) == "TF")
-                {
-					toReturn.Add("A");
-					i++;
-                }else if (i < index.Length -1 && index.Substring(i,2) == "FT")
-                {
-					toReturn.Add("B");
-					i++;
-                }else
-                {
-					toReturn.Add($"{index[i]}");
-                }
-            }
-			
-            if (digits.Count > 0)
-            {
-				string num = string.Join("",digits);
-				toReturn.Add($"{num}{index[index.Length-1]}");
-				digits = new List<char>();
-            }
-			return string.Join("",toReturn);
-        }
-
-		static string InternalDecodeRunLengthRemoveNumbers(string index) {
-			List<string> toReturn = new List<string>();
-			List<char> digits = new List<char>();
-			for (int i =0; i < index.Length; i++)
-            {
-				char current = index[i];
-                if (char.IsDigit(current))
-                {
-					digits.Add(current);
-                }else if (!char.IsDigit(current) && digits.Count > 0)
-                {
-					string num = string.Join("",digits);
-					int number = int.Parse(num);
-                    for (int j = 0; j < number; j++) {
-						toReturn.Add($"{current}");
-					}
-					digits = new List<char>();
-                }else
-                {
-					toReturn.Add(current.ToString());
-                }
-            }
-			
-			return string.Join("",toReturn);
-		}
-
-		static string InternalDecodeRuneLengthRemoveAB(string index)
-        {
-			List<string> toReturn = new List<string>();
-			for (int i = 0; i < index.Length; i++)
-            {
-				char current = index[i];
-                if (current == 'A')
-                {
-					toReturn.Add("TF");
-                }else if (current == 'B')
-                {
-					toReturn.Add("FT");
-                }else
-                {
-					toReturn.Add(current.ToString());
-                }
-            }
-			return string.Join("",toReturn);
+			return Encoding.ASCII.GetString(input);
         }
 
         #endregion
@@ -894,85 +1016,90 @@ namespace CSharpChainNetwork
 
 		#endregion
 
-		#region SQLCommands
+		#region RunTests
 
-		static void GenerateSQLLite(bool primaryKey)
-		{
-			string tableName = "users";
-			string columns = "";
-			if (primaryKey)
-			{
-				columns = "(wallet TEXT PRIMARY KEY, location TEXT)";
-			}
-			else
-			{
-				columns = "(wallet TEXT, location TEXT)";
-			}
-
-			SQLiteController sQLite = new SQLiteController("C:/temp/SQLite/blockchain");
-
-			if (sQLite.CheckForTable(tableName))
-			{
-				sQLite.CreateTable(tableName, columns);
-			}
-			else
-			{
-				Console.WriteLine("Table Already Exists!");
-			}
-		}
-
-		static void GetLocationOfBlocks()
+		static void RunTimeTests(string number)
 		{
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
-			User[] users = masterUsers;
-			Stream readStream = File.Open(master, FileMode.Open);
-			BinaryReader binReader = new BinaryReader(readStream, Encoding.ASCII);
-			long fileLength = binReader.BaseStream.Length;
-			SQLiteController sql = new SQLiteController("C:/temp/SQLite/blockchain");
-
-			Console.WriteLine("Started Getting all locations of all users");
-			for (int i = 0; i < fileLength / blockSize; i++)
+			int num = 10;
+			if (number.All(char.IsDigit))
 			{
-				readStream.Seek(i * blockSize, SeekOrigin.Begin);
-				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
-				blockData = blockData.Substring(85, 37803);
-				Dictionary<string, char> result = utilities.GetUsersForIndex(blockData, users);
-				Console.WriteLine($"Progress: {i}/{fileLength / blockSize}");
-
-				InternalShowProgress(i, fileLength / blockSize);
-
-				foreach (KeyValuePair<string, char> user in result)
+				num = int.Parse(number);
+			}
+			Random rand = new Random();
+			Dictionary<string, TimeSpan> SequentialSearch = new Dictionary<string, TimeSpan>();
+			Dictionary<string, Tuple<TimeSpan, TimeSpan>> PointerSearch = new Dictionary<string, Tuple<TimeSpan, TimeSpan>>();
+			Dictionary<string, Tuple<TimeSpan, TimeSpan>> SQLiteSearch = new Dictionary<string, Tuple<TimeSpan, TimeSpan>>();
+			HashSet<int> appeared = new HashSet<int>();
+			for (int i = 0; i < num; i++)
+			{
+				Console.WriteLine($"Progress:{i}/{num}");
+				int wallet = rand.Next(3000, 4999);
+				Console.WriteLine(wallet);
+				while (appeared.Contains(wallet))
 				{
-					if (user.Key != "SYSTEM")
-					{
-						if (user.Key != "System2")
-						{
-							int location = int.Parse(user.Key) - 3000;
-							users[location].locationString.Add(user.Value.ToString());
-						}
-					}
+					wallet = rand.Next(3000, 4999);
 				}
+				appeared.Add(wallet);
+				string walletString = wallet.ToString();
+				SequentialSearch.Add(walletString, SearchTransactionsByNode(walletString, ""));
+				showLine();
+				PointerSearch.Add(walletString, SearchForWalletUsingFileIndex(walletString));
+				showLine();
+				SQLiteSearch.Add(walletString, SearchForWalletInSQLite(walletString));
+				showLine();
 			}
+			StreamWriter sequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Sequential.csv", FileMode.Append));
+			StreamWriter SQLiteWriter = new StreamWriter(File.Open("C:/temp/Results/SQLite.csv", FileMode.Append));
+			StreamWriter PointerWriter = new StreamWriter(File.Open("C:/temp/Results/Pointer.csv", FileMode.Append));
 
-			foreach (User user in users)
+			foreach (KeyValuePair<string, TimeSpan> kvp in SequentialSearch)
 			{
-
-				user.locationCSV = string.Join("", user.locationString);
-				user.locationString = new List<string>();
-				user.locationCSV = InternalIndexCreation(user.locationCSV);
-				sql.InsertData("users", $"(wallet, location) VALUES('{user.name}', '{user.locationCSV}')");
+				sequentialWriter.WriteLine($"{kvp.Key},{kvp.Value}");
 			}
-			Console.WriteLine("Time Passed:" + timer.Elapsed.ToString());
+			foreach (KeyValuePair<string, Tuple<TimeSpan, TimeSpan>> kvp in SQLiteSearch)
+			{
+				SQLiteWriter.WriteLine($"{kvp.Key},{kvp.Value.Item1},{kvp.Value.Item2}");
+			}
+			foreach (KeyValuePair<string, Tuple<TimeSpan, TimeSpan>> kvp in PointerSearch)
+			{
+				PointerWriter.WriteLine($"{kvp.Key},{kvp.Value.Item1},{kvp.Value.Item2}");
+			}
 			timer.Stop();
-			readStream.Close();
-			binReader.Close();
+			Console.WriteLine($"Time Taken for running tests:{timer.Elapsed}");
+			sequentialWriter.Close();
+			SQLiteWriter.Close();
+			PointerWriter.Close();
 
+		}
+
+		static void RunTimeTestFor(string wallet)
+		{
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
+			Tuple<TimeSpan, TimeSpan> sqlLite;
+			Tuple<TimeSpan, TimeSpan> pointer;
+			TimeSpan sequential;
+
+			sequential = SearchTransactionsByNode(wallet, "false");
+			sqlLite = SearchForWalletInSQLite(wallet);
+			pointer = SearchForWalletUsingFileIndex(wallet);
+
+			StreamWriter sequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Sequential.csv", FileMode.Append));
+			StreamWriter SQLiteWriter = new StreamWriter(File.Open("C:/temp/Results/SQLite.csv", FileMode.Append));
+			StreamWriter PointerWriter = new StreamWriter(File.Open("C:/temp/Results/Pointer.csv", FileMode.Append));
+			sequentialWriter.WriteLine($"{wallet},{sequential}");
+			SQLiteWriter.WriteLine($"{wallet},{sqlLite}");
+			PointerWriter.WriteLine($"{wallet},{pointer}");
+
+			sequentialWriter.Close();
+			SQLiteWriter.Close();
+			PointerWriter.Close();
 		}
 
 		#endregion
 
-		
 		//before running this run 'genSQL' 
 		static void GenerateBlocks(int blocks)
 		{
@@ -1025,40 +1152,27 @@ namespace CSharpChainNetwork
 					newBlocks.Add(block);
 					//tempUsers = util.GetUsersForPointerIndex(block);
 					//index.AppendIndex(tempUsers,BlockLength);
-					toFasterIndex.Add(block,BlockLength);
+					//toFasterIndex.Add(block,BlockLength);
 					
 					BlockLength++;
 				}
 			}
 			block = CommandBlockchainMine("System2");
 			newBlocks.Add(block);
-			toFasterIndex.Add(block, BlockLength);
+			//toFasterIndex.Add(block, BlockLength);
 			//tempUsers = util.GetUsersForPointerIndex(block);
 			//index.AppendIndex(tempUsers,BlockLength);
 			WriteFromFixedLengthToBinary("temp");
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();
 			Console.WriteLine("Updating SQLite...");
-			UpsertIntoKVSTransaction(toFasterIndex);
-			InternalAppendKVSWalletIndex(toFasterIndex);
-			InternalAppendSQLiteIndex(newBlocks.ToArray());
+			//UpsertIntoKVSTransaction(toFasterIndex);
+			//InternalAppendKVSWalletIndex(toFasterIndex);
+			//InternalAppendSQLiteIndex(newBlocks.ToArray());
 			Console.WriteLine("Finished!!");
 			timer.Stop();
 			//indexUtil.SortFirstSeen();
 		}
-
-		static void UpsertIntoKVSTransaction(Dictionary<Block,long> kvps)
-        {
-			FastDB faster = new FastDB(fastTrans);
-			Console.WriteLine("Updating KVS");
-            foreach (KeyValuePair<Block,long> kvp in kvps)
-            {
-				string key = kvp.Key.PreviousHash.Substring(0, 15);
-				faster.Upsert(key, kvp.Value.ToString(),false);
-			}
-			faster.TakeCheckPoint();
-        }
-
 
 		static void GetFrequencyDistribution()
 		{
@@ -1072,14 +1186,14 @@ namespace CSharpChainNetwork
 			
 			Console.WriteLine("Started Getting Frequency of transactions");
 			int total = 0;
-			for (int i = 0; i < fileLength / blockSize; i++)
+			for (long i = 0; i < fileLength / blockSize; i++)
 			{
 				readStream.Seek(i * blockSize, SeekOrigin.Begin);
 				string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 				blockData = blockData.Substring(85, 37803);
 				List<string> result = utilities.PartialGetUserCountFromText(blockData);
-
-				InternalShowProgress(i,fileLength/blockSize);
+				Console.WriteLine(i);
+				InternalShowProgressLong(i,fileLength/blockSize);
 				
 				foreach(string user in result)
                 {
@@ -1130,12 +1244,6 @@ namespace CSharpChainNetwork
 
 			return temp;
 		}
-
-		static void GenerateFileIndex()
-        {
-			PointerIndexV2 file = new PointerIndexV2();
-			file.GenerateIndexFromFile(master,blockSize);
-        }
 
 		#region SearchCommands
 
@@ -1317,94 +1425,6 @@ namespace CSharpChainNetwork
 			stream.Close();
 
 			return amount;
-        }
-
-		static void RunTimeTests(string number)
-        {
-			Stopwatch timer = new Stopwatch();
-			timer.Start();
-			int num = 10;
-            if (number.All(char.IsDigit))
-            {
-				num = int.Parse(number);
-			}
-			Random rand = new Random();
-			Dictionary<string, TimeSpan> SequentialSearch = new Dictionary<string, TimeSpan>();
-			Dictionary<string, Tuple<TimeSpan,TimeSpan>> PointerSearch = new Dictionary<string, Tuple<TimeSpan,TimeSpan>>();
-			Dictionary<string, Tuple<TimeSpan,TimeSpan>> SQLiteSearch = new Dictionary<string, Tuple<TimeSpan,TimeSpan>>();
-			HashSet<int> appeared = new HashSet<int>();
-			for (int i = 0; i < num; i++)
-            {
-				Console.WriteLine($"Progress:{i}/{num}"); 
-				int wallet = rand.Next(3000,4999);
-				Console.WriteLine(wallet);
-                while (appeared.Contains(wallet))
-                {
-					wallet = rand.Next(3000,4999);
-                }
-				appeared.Add(wallet);
-				string walletString = wallet.ToString();
-				SequentialSearch.Add(walletString,SearchTransactionsByNode(walletString, ""));
-				showLine();
-				PointerSearch.Add(walletString, SearchForWalletUsingFileIndex(walletString));
-				showLine();
-				SQLiteSearch.Add(walletString,SearchForWalletInSQLite(walletString));
-				showLine();
-            }
-			StreamWriter sequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Sequential.csv", FileMode.Append));
-			StreamWriter SQLiteWriter = new StreamWriter(File.Open("C:/temp/Results/SQLite.csv",FileMode.Append));
-			StreamWriter PointerWriter = new StreamWriter(File.Open("C:/temp/Results/Pointer.csv",FileMode.Append));
-			
-			foreach (KeyValuePair<string,TimeSpan> kvp in SequentialSearch)
-            {
-				sequentialWriter.WriteLine($"{kvp.Key},{kvp.Value}");
-            }
-            foreach (KeyValuePair<string,Tuple<TimeSpan,TimeSpan>> kvp in SQLiteSearch)
-            {
-				SQLiteWriter.WriteLine($"{kvp.Key},{kvp.Value.Item1},{kvp.Value.Item2}");
-            }
-            foreach (KeyValuePair<string, Tuple<TimeSpan, TimeSpan>> kvp in PointerSearch)
-            {
-				PointerWriter.WriteLine($"{kvp.Key},{kvp.Value.Item1},{kvp.Value.Item2}");
-            }
-			timer.Stop();
-			Console.WriteLine($"Time Taken for running tests:{timer.Elapsed}");
-			sequentialWriter.Close();
-			SQLiteWriter.Close();
-			PointerWriter.Close();
-
-        }
-
-		static void RunTimeTestFor(string wallet)
-        {
-			Stopwatch timer = new Stopwatch();
-			timer.Start();
-			Tuple<TimeSpan,TimeSpan> sqlLite;
-			Tuple<TimeSpan, TimeSpan> pointer;
-			TimeSpan sequential;
-
-			sequential = SearchTransactionsByNode(wallet,"false");
-			sqlLite = SearchForWalletInSQLite(wallet);
-			pointer = SearchForWalletUsingFileIndex(wallet);
-
-			StreamWriter sequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Sequential.csv", FileMode.Append));
-			StreamWriter SQLiteWriter = new StreamWriter(File.Open("C:/temp/Results/SQLite.csv", FileMode.Append));
-			StreamWriter PointerWriter = new StreamWriter(File.Open("C:/temp/Results/Pointer.csv", FileMode.Append));
-			sequentialWriter.WriteLine($"{wallet},{sequential}");
-			SQLiteWriter.WriteLine($"{wallet},{sqlLite}");
-			PointerWriter.WriteLine($"{wallet},{pointer}");
-
-			sequentialWriter.Close();
-			SQLiteWriter.Close();
-			PointerWriter.Close();
-		}
-
-		static void GeneratePointerIndexFromMaster()
-        {
-			PointerForIndex pointer = new PointerForIndex();
-			pointer.GenerateIndexFromFile(master,blockSize);
-
-
         }
 
 		#endregion
