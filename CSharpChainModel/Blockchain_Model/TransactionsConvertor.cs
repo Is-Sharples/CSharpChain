@@ -16,7 +16,7 @@ namespace CSharpChainModel
             string sent = "";
             decimal amount = 0;
             string desc = "";
-            string hash = "";
+            string guid = "";
 
             string result = from.Replace("Transactions:", "");
 
@@ -36,8 +36,8 @@ namespace CSharpChainModel
                 sent = item.Substring(minus + 1,plus - minus - 1);
                 desc = item.Substring(plus + 1,times - plus-1);
                 amount = Decimal.Parse(item.Substring(times + 1,open - times -1 ));
-                hash = item.Substring(open+1);
-                list.Add(new Transaction(sent,recieved,amount,desc,hash));
+                guid = item.Substring(open+1);
+                list.Add(new Transaction(sent,recieved,amount,desc,Guid.Parse(guid.Trim())));
             }
 
             return list;
@@ -57,7 +57,7 @@ namespace CSharpChainModel
                 transactions.Append('*');
                 transactions.Append(item.Amount);
                 transactions.Append('[');
-                transactions.Append(item.hash);
+                transactions.Append(item.Guid);
                 transactions.Append(']');
             }
 

@@ -20,7 +20,7 @@ namespace CSharpChainModel
 		[FieldFixedLength(10)]
 		public string Description;
 		[FieldFixedLength(35)]
-		public string hash;
+		public Guid Guid;
 
 		public Transaction(string senderAddress, string receiverAddress, decimal amount, string description)
 		{
@@ -28,14 +28,16 @@ namespace CSharpChainModel
 			this.ReceiverAddress = receiverAddress;
 			this.Amount = amount;
 			this.Description = description;
+			this.Guid = Guid.NewGuid();
 		}
-		public Transaction(string senderAddress, string receiverAddress, decimal amount, string description, string hash)
+		public Transaction(string senderAddress, string receiverAddress, decimal amount, string description, Guid guid)
 		{
 			this.SenderAddress = senderAddress;
 			this.ReceiverAddress = receiverAddress;
 			this.Amount = amount;
 			this.Description = description;
-			this.hash = hash;
+			this.Guid = guid;
+			
 		}
 		public Transaction()
         {
@@ -47,25 +49,8 @@ namespace CSharpChainModel
 			return $" Sender Address: {SenderAddress} \n " +
 				$"Receiver Address: {ReceiverAddress} \n " +
 				$"For the Amount: {Amount} \n " +
-				$"Description: {Description} " + 
-				$"Hash: {hash}";
-		}
-
-		public void Hash(string lastHash)
-        {
-			
-			string toHash = $"{ReceiverAddress}{SenderAddress}{Description}{Amount}";
-			StringBuilder hashString = new StringBuilder(lastHash.Substring(0, 15));
-			hashString.Append('&');
-			Byte[] hashBytes;
-			using (var algorithm = SHA1.Create())
-			{
-				hashBytes = algorithm.ComputeHash(Encoding.ASCII.GetBytes(toHash));
-			}
-
-			hashString.Append(BitConverter.ToString(hashBytes).Replace("-", "").Substring(0, 15));
-			hash = hashString.ToString();
-
+				$"Description: {Description}\n " + 
+				$"Guid: {Guid}";
 		}
 
 		public List<Transaction> ExperimentalSearchForTransactions(string text, string key)

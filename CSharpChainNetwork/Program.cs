@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using System.Diagnostics;
 using System;
 using System.IO;
+using BrotliSharpLib;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -41,6 +42,7 @@ namespace CSharpChainNetwork
 			Console.ForegroundColor = ConsoleColor.Green;
 			Console.Write("CSharpChain> ");
 			Console.ResetColor();
+			
 		}
 
 		static void Main(string[] args)
@@ -1570,7 +1572,6 @@ namespace CSharpChainNetwork
 		static void CommandTransactionsAdd(string SenderAddress, string ReceiverAddress, string Amount, string Description)
 		{
 			Transaction transaction = new Transaction(SenderAddress, ReceiverAddress, Decimal.Parse(Amount), Description);
-			transaction.Hash(blockchainServices.Blockchain.Chain.Last().Hash);
 			blockchainServices.AddTransaction(transaction);
 			Console.WriteLine($"  {Amount} from {SenderAddress} to {ReceiverAddress} transaction added to list of pending transactions.");
 			Console.WriteLine("");
