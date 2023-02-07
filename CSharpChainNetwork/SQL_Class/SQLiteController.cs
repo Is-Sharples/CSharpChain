@@ -76,10 +76,53 @@ namespace CSharpChainNetwork.SQL_Class
             return true;
         }
 
+        public bool InsertBlobData(string tableName, string query, byte [] compressed)
+        {
+            
+            SQLiteCommand sqlite_cmd;
+            sqlite_cmd = conn.CreateCommand();
+            sqlite_cmd.CommandText = $"INSERT INTO {tableName} {query}";
+            Console.WriteLine(GetString(compressed));
+            sqlite_cmd.Parameters.Add("@location", System.Data.DbType.Binary).Value = compressed;
+            try
+            {
+                sqlite_cmd.ExecuteNonQuery();
+                return true;
+            }
+            catch (Exception e)
+            {
+                return false;
+            }
+
+
+            return true;
+        }
+
+        public bool UpdateBlobData(string user , byte[] compressed)
+        {
+            //$"UPDATE users SET location = '{temp}' WHERE wallet='{user.name}'"
+            SQLiteCommand sqlite_cmd;
+            sqlite_cmd = conn.CreateCommand();
+            sqlite_cmd.CommandText = $"UPDATE brotliUsers SET location = @location WHERE wallet = '{user}'";
+            //Console.WriteLine(GetString(compressed));
+            sqlite_cmd.Parameters.Add("@location", System.Data.DbType.Binary).Value = compressed;
+            try
+            {
+                sqlite_cmd.ExecuteNonQuery();
+            }
+            catch (Exception e)
+            {
+                return false;
+            }
+
+
+            return true;
+            return false;
+        }
         public string ReadData(string tableName, string columns, bool getAll, string where)
         {
             string path = "C:/temp/SQLite/temp.txt";
-            StreamWriter writer = new StreamWriter(path);
+            StreamWriter writer = new StreamWriter(File.Open(path,FileMode.Create),Encoding.ASCII);
             SQLiteDataReader sqlite_datareader;
             SQLiteCommand sqlite_cmd;
             sqlite_cmd = conn.CreateCommand();
@@ -100,7 +143,16 @@ namespace CSharpChainNetwork.SQL_Class
                 {
                     for (int i = 0; i < cols; i++)
                     {
-                        writer.WriteLine(sqlite_datareader.GetValue(i).ToString());
+                        dynamic temp = sqlite_datareader.GetValue(i);
+                        if (temp is Array)
+                        {
+                            Console.WriteLine(GetString(temp));
+                            writer.WriteLine(GetString(temp));
+                        }else
+                        {
+                            writer.WriteLine(temp.ToString());
+                        }
+                        
                     }
                 }
             }catch(Exception e)
@@ -113,6 +165,59 @@ namespace CSharpChainNetwork.SQL_Class
             writer.Close();
             conn.Close();
             return path;
+        }
+
+        public Tuple<string,byte[]> ReadBlobData(string tableName, string columns, bool getAll, string where)
+        {
+            string path = "C:/temp/SQLite/temp.txt";
+            StreamWriter writer = new StreamWriter(File.OpenWrite(path), Encoding.ASCII);
+            SQLiteDataReader sqlite_datareader;
+            SQLiteCommand sqlite_cmd;
+            byte[] arr = new byte[0];
+            string wallet = "";
+            sqlite_cmd = conn.CreateCommand();
+            try
+            {
+                if (!getAll)
+                {
+                    sqlite_cmd.CommandText = $"SELECT {columns} FROM {tableName} {where}";
+                }
+                else
+                {
+                    sqlite_cmd.CommandText = $"SELECT * FROM {tableName}";
+                }
+                sqlite_datareader = sqlite_cmd.ExecuteReader();
+                int cols = sqlite_datareader.FieldCount;
+                
+                while (sqlite_datareader.Read())
+                {
+                    for (int i = 0; i < cols; i++)
+                    {
+                        dynamic temp = sqlite_datareader.GetValue(i);
+                        if (temp is Array)
+                        {
+                            //Console.WriteLine(GetString(temp));
+                            arr = temp;
+                        }
+                        else
+                        {
+                            wallet = temp;
+                            //writer.WriteLine(temp.ToString());
+                        }
+
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return null;
+            }
+
+
+            writer.Close();
+            conn.Close();
+            return new Tuple<string, byte[]>(wallet,arr);
         }
 
         public string ReadDataForAppending(string columns, string tableName, string where,bool close)
@@ -194,6 +299,16 @@ namespace CSharpChainNetwork.SQL_Class
             }
 
             return 400;
+        }
+
+        static byte[] GetBytes(string input)
+        {
+            return Encoding.ASCII.GetBytes(input);
+        }
+
+        static string GetString(byte[] input)
+        {
+            return Encoding.ASCII.GetString(input);
         }
     }
 }

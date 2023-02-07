@@ -134,24 +134,21 @@ namespace CSharpChainNetwork
 						case "bl":
 							SimpleBlockchainLength(true);
 							break;
-
 						case "block":
 						case "b":
 							CommandBlock(int.Parse(command[1]));
 							break;
-
 						case "balance-get":
 						case "bal":
 							CommandBalance(command[1]);
 							break;
-
 						case "blockchain-update":
 						case "update":
 						case "bu":
 							CommandBlockchainUpdate();
 							break;
 						case "gen":
-							GenerateSQLLite(true);
+							//GenerateSQLLite(true);
 							if (command[1].Length > 0)
                             {
 								GenerateBlocks(int.Parse(command[1]));
@@ -164,7 +161,6 @@ namespace CSharpChainNetwork
 						case "read":
 						case "r":
 							ReadFromConvertedBinary();
-							
 							break;
 						case "search":
 						case "s":
@@ -180,7 +176,6 @@ namespace CSharpChainNetwork
 							break;
 						case "fs":
 							SearchForWalletUsingFileIndex(command[1]);
-
 							break;
 						case "ss":
 							SearchForWalletInSQLite(command[1]);
@@ -188,7 +183,6 @@ namespace CSharpChainNetwork
 						case "ps":
 							SearchForWalletUsingPointerIndex(command[1]);
 							break;
-
 						case "script":
 							Stopwatch timer = new Stopwatch();
 							timer.Start();
@@ -213,7 +207,6 @@ namespace CSharpChainNetwork
 							Stopwatch stopwatch = new Stopwatch();
 							stopwatch.Start();
 							GenerateFileIndex();
-							//GeneratePointerIndexFromMaster();
 							Console.WriteLine($"Time taken for generating indexes:{stopwatch.Elapsed}");
 							break;
 						case "runtest":
@@ -241,6 +234,12 @@ namespace CSharpChainNetwork
 							Console.WriteLine($"Wallet Balance:{ammount}");
 							Console.WriteLine($"Time taken for KVS:{tajmer.Elapsed}");
 							tajmer.Stop();
+							break;
+						case "bs":
+							InternalSearchFromBrotli(command[1]);
+							break;
+						case "st":
+							InternalSearchSQLTransaction(command[1]);
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -285,6 +284,8 @@ namespace CSharpChainNetwork
 
 		static decimal InternalParseBlockLocations(string[] locations, string key)
 		{
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
 			Stream stream = File.Open(master, FileMode.Open);
 			BinaryReader binReader = new BinaryReader(stream, Encoding.ASCII);
 			long fileLength = binReader.BaseStream.Length;
@@ -330,12 +331,9 @@ namespace CSharpChainNetwork
 					}
 				}
 			}
-			decimal amount = 0;
-			foreach (Transaction trans in Transactions)
-			{
-				amount += trans.Amount;
-			}
-
+			timer.Stop();
+			binReader.Close();
+			decimal amount = InternalCalculateAmount(Transactions);
 			Console.WriteLine($"Wallet Balance for {key}: {amount}");
 			stream.Close();
 			binReader.Close();
@@ -362,9 +360,7 @@ namespace CSharpChainNetwork
 					InternalShowProgressLong(i,fileLength/blockSize);
 
 					if (i * blockSize < fileLength)
-					{
-						//Go to Byte: 512 * block Num
-						
+					{	
 						stream.Seek(i * longBlockSize, SeekOrigin.Begin);
 						string blockData = Encoding.ASCII.GetString(binReader.ReadBytes(blockSize));
 						blockData = blockData.Substring(85, 37803);
@@ -392,6 +388,56 @@ namespace CSharpChainNetwork
 			stream.Close();
 			return transactions;
 		}
+
+		static void InternalSearchFromBrotli(string key)
+        {
+			SQLiteController sequel = new SQLiteController(database);
+			Tuple<string, byte[]> getData = sequel.ReadBlobData("brotliUsers", "wallet,location", false, $"WHERE wallet='{key}'");
+			byte[] uncompressed = Brotli.DecompressBuffer(getData.Item2, 0, getData.Item2.Length);
+			string locations = GetString(uncompressed);
+			BinaryReader binaryReader = new BinaryReader(File.OpenRead(master),Encoding.ASCII);
+			long fileLength = binaryReader.BaseStream.Length;
+			List<Transaction> transactions = new List<Transaction>();
+			for (long i = 0; i < fileLength/longBlockSize; i++)
+            {
+				int c = (int)i;
+                if (locations[c] == '1')
+                {
+					binaryReader.BaseStream.Seek(i * longBlockSize, SeekOrigin.Begin);
+					string blockData = GetString(binaryReader.ReadBytes(blockSize));
+					blockData = blockData.Substring(85, 37803);
+					List<Transaction> result = utilities.ExperimentalSearchForTransactions(blockData, key);
+                    if (result.Count > 0)
+                    {
+						transactions.AddRange(result);
+                    }
+				}
+				
+			}
+			decimal amount = InternalCalculateAmount(transactions);
+			binaryReader.Close();
+			Console.WriteLine($"Amount for {key}:{amount}");
+
+		}
+
+		static void InternalSearchSQLTransaction(string guid)
+        {
+			SQLiteController sequel = new SQLiteController(database);
+			StreamReader reader = new StreamReader(sequel.ReadData("transactions", "location", false, $"WHERE Guid='{guid}'"));
+			long location = long.Parse(reader.ReadToEnd());
+			BinaryReader binreader = new BinaryReader(File.OpenRead(master),Encoding.ASCII);
+			binreader.BaseStream.Seek(location * longBlockSize,SeekOrigin.Begin);
+			string blockData = GetString(binreader.ReadBytes(blockSize));
+			var engine = new FileHelperEngine<Block>();
+			Block[] blocks = engine.ReadString(blockData);
+            foreach (Transaction trans in blocks[0].Transactions)
+            {
+                if (trans.Guid.ToString() == guid)
+                {
+					Console.WriteLine(trans);
+                }
+            }
+        }
 
 		#endregion
 
@@ -437,6 +483,8 @@ namespace CSharpChainNetwork
 				user.locationCSV += string.Join("", user.locationString);
 				string temp = InternalIndexCreation(user.locationCSV);
 				sql.CustomCommand($"UPDATE users SET location = '{temp}' WHERE wallet='{user.name}'");
+				byte[] compressed = Brotli.CompressBuffer(GetBytes(user.locationCSV), 0, GetBytes(user.locationCSV).Length);
+				sql.UpdateBlobData(user.name,compressed);
 				user.locationCSV = "";
 				user.locationString = new List<string>();
 			}
@@ -480,6 +528,8 @@ namespace CSharpChainNetwork
 		static void GenerateSQLLite(bool primaryKey)
 		{
 			string tableName = "users";
+			string brotliTable = "brotliUsers";
+			string transactionTable = "transactions";
 			string columns = "";
 			if (primaryKey)
 			{
@@ -495,6 +545,10 @@ namespace CSharpChainNetwork
 			if (sQLite.CheckForTable(tableName))
 			{
 				sQLite.CreateTable(tableName, columns);
+				columns = "(wallet TEXT, location BLOB)";
+				sQLite.CreateTable(brotliTable,columns);
+				columns = "(Guid TEXT, location TEXT)";
+				sQLite.CreateTable(transactionTable,columns);
 			}
 			else
 			{
@@ -541,8 +595,10 @@ namespace CSharpChainNetwork
 
 				user.locationCSV = string.Join("", user.locationString);
 				user.locationString = new List<string>();
+				byte [] Compress = Brotli.CompressBuffer(GetBytes(user.locationCSV),0,GetBytes(user.locationCSV).Length);
 				user.locationCSV = InternalIndexCreation(user.locationCSV);
 				sql.InsertData("users", $"(wallet, location) VALUES('{user.name}', '{user.locationCSV}')");
+				sql.InsertBlobData("brotliUsers",$"(wallet, location) VALUES('{user.name}',@location)",Compress);
 			}
 			Console.WriteLine("Time Passed:" + timer.Elapsed.ToString());
 			timer.Stop();
@@ -557,6 +613,22 @@ namespace CSharpChainNetwork
 			pointer.GenerateIndexFromFile(master, blockSize);
 
 
+		}
+
+		static void AppendSQLTransactionIndex(Dictionary<Block,long> blockLocs)
+        {
+			SQLiteController sequel = new SQLiteController(database);
+			List<string> GUIDs = new List<string>();
+            foreach (KeyValuePair<Block,long> kvp in blockLocs)
+            {
+				foreach (Transaction trans in kvp.Key.Transactions)
+				{
+					Console.WriteLine(trans.Guid);
+					sequel.InsertData("transactions", $"(Guid, location) VALUES('{trans.Guid}', '{kvp.Value}')");
+					GUIDs.Add(trans.Guid.ToString());
+				}
+			}
+            
 		}
 
 		#region SQLiteIndexGeneration
@@ -945,6 +1017,16 @@ namespace CSharpChainNetwork
 			Console.WriteLine("Length"+users.Length);
         }
 
+		static decimal InternalCalculateAmount(List<Transaction> transactions)
+        {
+			decimal amount = 0;
+            foreach (Transaction trans in transactions)
+            {
+				amount += trans.Amount;
+            }
+			return amount;
+        }
+
 		static byte[] GetBytes(string input)
         {
 			return Encoding.ASCII.GetBytes(input);
@@ -954,6 +1036,7 @@ namespace CSharpChainNetwork
         {
 			return Encoding.ASCII.GetString(input);
         }
+
 
         #endregion
 
@@ -1106,6 +1189,7 @@ namespace CSharpChainNetwork
 		static void GenerateBlocks(int blocks)
 		{
 			//to avoid resetting weights
+			bool sqlFlag = false;
             if (weight[0] == 0)
             {
 				InternalSetupWeights();
@@ -1115,9 +1199,16 @@ namespace CSharpChainNetwork
             {
 				BlockLength = SimpleBlockchainLength(false);
 			}
+            if (!File.Exists($"{database}.db"))
+            {
+				GenerateSQLLite(true);
+				sqlFlag = true;
+            }
+
 			PointerForIndex indexUtil = new PointerForIndex();
 			PointerIndexV2 index = new PointerIndexV2();
 			Transaction util = new Transaction();
+			Dictionary<Block, long> BlockLocations = new Dictionary<Block, long>();
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
 			int transNo = 512;
@@ -1152,15 +1243,17 @@ namespace CSharpChainNetwork
 				{
 					block = CommandBlockchainMine("System2");
 					newBlocks.Add(block);
+					BlockLocations.Add(block,BlockLength);
 					//tempUsers = util.GetUsersForPointerIndex(block);
 					//index.AppendIndex(tempUsers,BlockLength);
 					//toFasterIndex.Add(block,BlockLength);
-					
+
 					BlockLength++;
 				}
 			}
 			block = CommandBlockchainMine("System2");
 			newBlocks.Add(block);
+			BlockLocations.Add(block, BlockLength);
 			//toFasterIndex.Add(block, BlockLength);
 			//tempUsers = util.GetUsersForPointerIndex(block);
 			//index.AppendIndex(tempUsers,BlockLength);
@@ -1168,9 +1261,17 @@ namespace CSharpChainNetwork
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			blockchainServices.RefreshBlockchain();
 			Console.WriteLine("Updating SQLite...");
-			//UpsertIntoKVSTransaction(toFasterIndex);
-			//InternalAppendKVSWalletIndex(toFasterIndex);
-			//InternalAppendSQLiteIndex(newBlocks.ToArray());
+            //UpsertIntoKVSTransaction(toFasterIndex);
+            //InternalAppendKVSWalletIndex(toFasterIndex);
+            if (sqlFlag)
+            {
+				GetLocationOfBlocks();
+			}else
+            {
+				InternalAppendSQLiteIndex(newBlocks.ToArray());
+				
+			}
+			AppendSQLTransactionIndex(BlockLocations);
 			Console.WriteLine("Finished!!");
 			timer.Stop();
 			//indexUtil.SortFirstSeen();
@@ -1414,13 +1515,7 @@ namespace CSharpChainNetwork
 				}
 
 			}
-            
-			decimal amount = 0;
-            foreach (Transaction trans in transactions)
-            {
-				amount += trans.Amount;
-            }
-
+			decimal amount = InternalCalculateAmount(transactions);
 			reader.Close();
 			stream.Close();
 
