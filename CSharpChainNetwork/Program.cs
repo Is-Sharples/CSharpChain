@@ -241,6 +241,9 @@ namespace CSharpChainNetwork
 						case "st":
 							InternalSearchSQLTransaction(command[1]);
 							break;
+						case "ft":
+							InternalSearchForTransactionWithKVS(command[1]);
+							break;
 						default:
 							ShowIncorrectCommand();
 							break;
@@ -425,19 +428,24 @@ namespace CSharpChainNetwork
 			SQLiteController sequel = new SQLiteController(database);
 			StreamReader reader = new StreamReader(sequel.ReadData("transactions", "location", false, $"WHERE Guid='{guid}'"));
 			long location = long.Parse(reader.ReadToEnd());
-			BinaryReader binreader = new BinaryReader(File.OpenRead(master),Encoding.ASCII);
-			binreader.BaseStream.Seek(location * longBlockSize,SeekOrigin.Begin);
+			InternalGetTransactionFromFile(location,guid);
+        }
+
+		static void InternalGetTransactionFromFile(long location,string guid)
+        {
+			BinaryReader binreader = new BinaryReader(File.OpenRead(master), Encoding.ASCII);
+			binreader.BaseStream.Seek(location * longBlockSize, SeekOrigin.Begin);
 			string blockData = GetString(binreader.ReadBytes(blockSize));
 			var engine = new FileHelperEngine<Block>();
 			Block[] blocks = engine.ReadString(blockData);
-            foreach (Transaction trans in blocks[0].Transactions)
-            {
-                if (trans.Guid.ToString() == guid)
-                {
+			foreach (Transaction trans in blocks[0].Transactions)
+			{
+				if (trans.Guid.ToString() == guid)
+				{
 					Console.WriteLine(trans);
-                }
-            }
-        }
+				}
+			}
+		}
 
 		#endregion
 
@@ -523,6 +531,55 @@ namespace CSharpChainNetwork
 				faster.Upsert(key, kvp.Value.ToString(), false);
 			}
 			faster.TakeCheckPoint();
+		}
+
+        static void InternalSearchForTransactionWithKVS(string guid)
+        {
+			char tempCh = guid[0];
+			FastDB faster = new FastDB($"{fastTrans}/{tempCh}", true);
+			string loc = faster.SearchForTransaction(GetBytes(guid));
+			long location = long.Parse(loc);
+			InternalGetTransactionFromFile(location,guid);
+
+		}
+
+		static void InternalAppendPartitionedTransactionStore(Dictionary<Block,long> TransLocations)
+        {
+
+			Dictionary<Guid, long> keyValuePairs = new Dictionary<Guid, long>();
+			HashSet<char> identifiers = new HashSet<char>();
+			HashSet<FastDB> fast = new HashSet<FastDB>();
+            foreach (KeyValuePair<Block, long> kvp in TransLocations)
+            {		
+				foreach (Transaction trans in kvp.Key.Transactions)
+				{
+					char temp = trans.Guid.ToString()[0];					
+                    if (!identifiers.Contains(temp))
+                    {
+						identifiers.Add(temp);
+                    }					
+					using (StreamWriter sw = File.AppendText($"{fastTrans}/{temp}.txt"))
+					{
+						sw.WriteLine($"{trans.Guid}&{kvp.Value}");
+					}					
+				}
+			}
+            foreach (char id in identifiers)
+            {
+				FastDB faster = new FastDB($"{fastTrans}/{id}",true);
+				string[] array = File.ReadAllLines($"{fastTrans}/{id}.txt");
+                foreach (string line in array)
+                {
+					int dash = line.IndexOf('&');
+					string guid = line.Substring(0,dash);
+					string loc = line.Substring(dash + 1);
+					faster.Upsert(GetBytes(guid),GetBytes(loc));
+                }
+				faster.TakeByteCheckPoint();
+				faster.Destroy(true);
+				File.Delete($"{fastTrans}/{id}.txt");
+            }
+
 		}
 
 		static void GenerateSQLLite(bool primaryKey)
@@ -1271,6 +1328,7 @@ namespace CSharpChainNetwork
 				InternalAppendSQLiteIndex(newBlocks.ToArray());
 				
 			}
+			InternalAppendPartitionedTransactionStore(BlockLocations);
 			AppendSQLTransactionIndex(BlockLocations);
 			Console.WriteLine("Finished!!");
 			timer.Stop();

@@ -108,7 +108,6 @@ namespace CSharpChainNetwork.Faster
         public string SearchForTransaction(byte[] byteKey)
         {
             string key = GetString(byteKey);
-            key = key.Substring(0, key.IndexOf('&'));
             byteKey = GetBytes(key);
             byte[] output = new byte[1];
             var funcs = new SimpleFunctions<byte[], byte[]>();
@@ -126,7 +125,7 @@ namespace CSharpChainNetwork.Faster
                     if (iter.Current.Status.Found)
                     {
                         output = iter.Current.Output;
-                        Console.WriteLine(GetString(iter.Current.Output));
+                        //Console.WriteLine(GetString(iter.Current.Output));
                     }
                     else
                         Console.WriteLine("Not Found in Iter");
@@ -262,6 +261,15 @@ namespace CSharpChainNetwork.Faster
             return true;
         }
 
+        public bool Exists()
+        {
+            if (byteStore.RecoveredVersion == 1)
+            {
+                return false;
+            }
+            return true;
+        }
+
         public void BuildWalletIndex(long blockSize, string master)
         {
             int intBlock = int.Parse(blockSize.ToString());
@@ -323,6 +331,7 @@ namespace CSharpChainNetwork.Faster
             }
             TakeByteCheckPoint();
         }
+
 
         private byte[] GetBytes(string input)
         {
