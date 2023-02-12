@@ -204,7 +204,7 @@ namespace CSharpChainNetwork
 							Console.WriteLine($"Time taken for generating indexes:{stopwatch.Elapsed}");
 							break;
 						case "runtest":
-							RunTimeTests(command[1]);
+							RunWalletTimeTests(command[1]);
 							break;
 						case "ftrans":
 							var temp = new FastDB(fastTrans,true);
@@ -230,7 +230,7 @@ namespace CSharpChainNetwork
 							tajmer.Stop();
 							break;
 						case "bs":
-							InternalSearchFromBrotli(command[1]);
+							InternalWalletSearchFromBrotli(command[1]);
 							break;
 						case "st":
 							InternalSearchSQLTransaction(command[1]);
@@ -240,6 +240,9 @@ namespace CSharpChainNetwork
 							break;
 						case "fs":
 							InternalSearchFasterWallet(command[1]);
+							break;
+						case "get-all-trans":
+							GetTransactionsForTesting();
 							break;
 						case "t":
 							InternalSearchForTransactionSequenitally(command[1]);
@@ -392,12 +395,17 @@ namespace CSharpChainNetwork
 			return transactions;
 		}
 
-		static void InternalSearchFromBrotli(string key)
+		static Tuple<TimeSpan,TimeSpan> InternalWalletSearchFromBrotli(string key)
         {
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
+			TimeSpan getLoc;
+			TimeSpan results;
 			SQLiteController sequel = new SQLiteController(database);
 			Tuple<string, byte[]> getData = sequel.ReadBlobData("brotliUsers", "wallet,location", false, $"WHERE wallet='{key}'");
 			byte[] uncompressed = Brotli.DecompressBuffer(getData.Item2, 0, getData.Item2.Length);
 			string locations = GetString(uncompressed);
+			getLoc = timer.Elapsed;
 			BinaryReader binaryReader = new BinaryReader(File.OpenRead(master),Encoding.ASCII);
 			long fileLength = binaryReader.BaseStream.Length;
 			List<Transaction> transactions = new List<Transaction>();
@@ -417,25 +425,34 @@ namespace CSharpChainNetwork
 				}
 			}
 			decimal amount = InternalCalculateAmount(transactions);
+			results = timer.Elapsed;
 			binaryReader.Close();
 			Console.WriteLine($"Amount for {key}:{amount}");
-
+			Console.WriteLine($"Time Taken for getting Locations:{getLoc}");
+			Console.WriteLine($"Time Taken for Amount:{results}");
+			return new Tuple<TimeSpan, TimeSpan>(getLoc,results);
 		}
 
-		static void InternalSearchSQLTransaction(string guid)
+		static TimeSpan InternalSearchSQLTransaction(string guid)
         {
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
 			SQLiteController sequel = new SQLiteController(database);
 			StreamReader reader = new StreamReader(sequel.ReadData("transactions", "location", false, $"WHERE Guid='{guid}'"));
 			long location = long.Parse(reader.ReadToEnd());
 			InternalGetTransactionFromFile(location,guid);
+			timer.Stop();
+			return timer.Elapsed;
         }
 
-		static void InternalSearchFasterWallet(string key)
+		static Tuple<TimeSpan,TimeSpan> InternalSearchFasterWallet(string key)
         {
 			string[] subdirs = Directory.GetDirectories(fastWallets);
 			List<FastDB> faster = new List<FastDB>();
 			List<string> result = new List<string>();
 			Stopwatch timer = new Stopwatch();
+			TimeSpan getLoc;
+			TimeSpan results;
 			timer.Start();
             foreach (string dir in subdirs)
             {
@@ -460,12 +477,66 @@ namespace CSharpChainNetwork
 				}
 				
             }
-			timer.Stop();
+			getLoc = timer.Elapsed;
+			
 			Console.WriteLine($"Time taken for Searching:{timer.Elapsed}");
 
 			List<Transaction> transactions = InternalFindBlocksFromMaster(longLocations, key);
 			decimal amount = InternalCalculateAmount(transactions);
+			results = timer.Elapsed;
 			Console.WriteLine($"Amount:{amount}");
+			Console.WriteLine($"Time Taken for getting Locations:{getLoc}");
+			Console.WriteLine($"Time Taken for Amount:{results}");
+			timer.Stop();
+			return new Tuple<TimeSpan, TimeSpan>(getLoc,results);
+		}
+
+		static TimeSpan InternalSearchForTransactionWithKVS(string guid)
+		{
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
+			char tempCh = guid[0];
+			FastDB faster = new FastDB($"{fastTrans}/{tempCh}", true);
+			string loc = faster.SearchForTransaction(GetBytes(guid));
+			long location = long.Parse(loc);
+			InternalGetTransactionFromFile(location, guid);
+			timer.Stop();
+			return timer.Elapsed;
+		}
+
+		static TimeSpan InternalSearchForTransactionSequenitally(string guid)
+		{
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
+			BinaryReader reader = new BinaryReader(File.OpenRead(master), Encoding.ASCII);
+			long fileLength = reader.BaseStream.Length / longBlockSize;
+
+			for (long i = 1; i < fileLength; i++)
+			{
+				reader.BaseStream.Seek(i * longBlockSize, SeekOrigin.Begin);
+				string blockData = GetString(reader.ReadBytes(blockSize));
+				string temp = blockData.Substring(85, 37803);
+				string result = utilities.SearchForTransactionGuid(temp, guid);
+				if (result != "")
+				{
+					var engine = new FileHelperEngine<Block>();
+					Block block = engine.ReadString(blockData)[0];
+					foreach (Transaction trans in block.Transactions)
+					{
+						if (trans.Guid.ToString() == guid)
+						{
+							showLine();
+							Console.WriteLine(trans);
+							showLine();
+						}
+					}
+					break;
+
+				}
+			}
+			timer.Stop();
+			return timer.Elapsed;
+
 		}
 
 		#endregion
@@ -542,48 +613,6 @@ namespace CSharpChainNetwork
 			faster.Destroy(true);
 
 		}
-
-        static void InternalSearchForTransactionWithKVS(string guid)
-        {
-			char tempCh = guid[0];
-			FastDB faster = new FastDB($"{fastTrans}/{tempCh}", true);
-			string loc = faster.SearchForTransaction(GetBytes(guid));
-			long location = long.Parse(loc);
-			InternalGetTransactionFromFile(location,guid);
-
-		}
-
-		static void InternalSearchForTransactionSequenitally(string guid)
-        {
-			BinaryReader reader = new BinaryReader(File.OpenRead(master),Encoding.ASCII);
-			long fileLength = reader.BaseStream.Length / longBlockSize;
-
-            for (long i = 1; i < fileLength; i++)
-            {
-				reader.BaseStream.Seek(i * longBlockSize,SeekOrigin.Begin);
-				string blockData = GetString(reader.ReadBytes(blockSize));
-				string temp = blockData.Substring(85, 37803);
-				string result = utilities.SearchForTransactionGuid(temp,guid);
-                if (result != "")
-                {
-					var engine = new FileHelperEngine<Block>();
-					Block block = engine.ReadString(blockData)[0];
-                    foreach (Transaction trans in block.Transactions)
-                    {
-                        if (trans.Guid.ToString() == guid)
-                        {
-							showLine();
-							Console.WriteLine(trans);
-							showLine();
-                        }
-                    }
-					break;
-					
-				}
-			}
-
-
-        }
 
 		static void InternalAppendPartitionedTransactionStore(Dictionary<Block,long> TransLocations)
         {
@@ -1102,21 +1131,30 @@ namespace CSharpChainNetwork
 			Console.WriteLine("-----------------");
 		}
 
-		static void InternalDisplayStringList(List<string> input)
+		static void GetTransactionsForTesting()
         {
-            foreach (string text in input)
-            {
-				Console.WriteLine(text);
-            }
-        }
+			BinaryReader reader = new BinaryReader(File.OpenRead(master),Encoding.ASCII);
+			long fileLength = reader.BaseStream.Length / longBlockSize;
+			string path = "C:/temp/Transactions.txt";
 
-		static void InternalShowAllUsers(User[] users)
-        {
-			foreach(User user in users)
+			if (File.Exists(path))
             {
-				Console.WriteLine(user.name);
+				File.Delete(path);
             }
-			Console.WriteLine("Length"+users.Length);
+			StreamWriter writer = new StreamWriter(path);
+            for (long i = 1; i < fileLength; i++)
+            {
+				Console.WriteLine($"{i}/{fileLength}");
+				reader.BaseStream.Seek(i * longBlockSize,SeekOrigin.Begin);
+				string blockData = GetString(reader.ReadBytes(blockSize));
+				int open = blockData.IndexOf('[');
+
+				string transaction = blockData.Substring(open +1,blockData.IndexOf(']')-open-1);
+				writer.WriteLine(transaction);
+
+			}
+			writer.Close();
+			reader.Close();
         }
 
 		static decimal InternalCalculateAmount(List<Transaction> transactions)
@@ -1222,7 +1260,7 @@ namespace CSharpChainNetwork
 
 		#region RunTests
 
-		static void RunTimeTests(string number)
+		static void RunWalletTimeTests(string number)
 		{
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
@@ -1233,7 +1271,7 @@ namespace CSharpChainNetwork
 			}
 			Random rand = new Random();
 			Dictionary<string, TimeSpan> SequentialSearch = new Dictionary<string, TimeSpan>();
-			Dictionary<string, Tuple<TimeSpan, TimeSpan>> PointerSearch = new Dictionary<string, Tuple<TimeSpan, TimeSpan>>();
+			Dictionary<string, Tuple<TimeSpan, TimeSpan>> FasterSearch = new Dictionary<string, Tuple<TimeSpan, TimeSpan>>();
 			Dictionary<string, Tuple<TimeSpan, TimeSpan>> SQLiteSearch = new Dictionary<string, Tuple<TimeSpan, TimeSpan>>();
 			HashSet<int> appeared = new HashSet<int>();
 			for (int i = 0; i < num; i++)
@@ -1249,14 +1287,14 @@ namespace CSharpChainNetwork
 				string walletString = wallet.ToString();
 				SequentialSearch.Add(walletString, SearchTransactionsByNode(walletString, ""));
 				showLine();
-				PointerSearch.Add(walletString, SearchForWalletUsingFileIndex(walletString));
+				FasterSearch.Add(walletString, InternalSearchFasterWallet(walletString));
 				showLine();
-				SQLiteSearch.Add(walletString, SearchForWalletInSQLite(walletString));
+				SQLiteSearch.Add(walletString, InternalWalletSearchFromBrotli(walletString));
 				showLine();
 			}
 			StreamWriter sequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Sequential.csv", FileMode.Append));
 			StreamWriter SQLiteWriter = new StreamWriter(File.Open("C:/temp/Results/SQLite.csv", FileMode.Append));
-			StreamWriter PointerWriter = new StreamWriter(File.Open("C:/temp/Results/Pointer.csv", FileMode.Append));
+			StreamWriter FasterWriter = new StreamWriter(File.Open("C:/temp/Results/Faster.csv", FileMode.Append));
 
 			foreach (KeyValuePair<string, TimeSpan> kvp in SequentialSearch)
 			{
@@ -1266,15 +1304,15 @@ namespace CSharpChainNetwork
 			{
 				SQLiteWriter.WriteLine($"{kvp.Key},{kvp.Value.Item1},{kvp.Value.Item2}");
 			}
-			foreach (KeyValuePair<string, Tuple<TimeSpan, TimeSpan>> kvp in PointerSearch)
+			foreach (KeyValuePair<string, Tuple<TimeSpan, TimeSpan>> kvp in FasterSearch)
 			{
-				PointerWriter.WriteLine($"{kvp.Key},{kvp.Value.Item1},{kvp.Value.Item2}");
+				FasterWriter.WriteLine($"{kvp.Key},{kvp.Value.Item1},{kvp.Value.Item2}");
 			}
 			timer.Stop();
 			Console.WriteLine($"Time Taken for running tests:{timer.Elapsed}");
 			sequentialWriter.Close();
 			SQLiteWriter.Close();
-			PointerWriter.Close();
+			FasterWriter.Close();
 
 		}
 
@@ -1283,23 +1321,23 @@ namespace CSharpChainNetwork
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
 			Tuple<TimeSpan, TimeSpan> sqlLite;
-			Tuple<TimeSpan, TimeSpan> pointer;
+			Tuple<TimeSpan, TimeSpan> faster;
 			TimeSpan sequential;
 
 			sequential = SearchTransactionsByNode(wallet, "false");
-			sqlLite = SearchForWalletInSQLite(wallet);
-			pointer = SearchForWalletUsingFileIndex(wallet);
+			sqlLite = InternalWalletSearchFromBrotli(wallet);
+			faster = InternalSearchFasterWallet(wallet);
 
 			StreamWriter sequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Sequential.csv", FileMode.Append));
 			StreamWriter SQLiteWriter = new StreamWriter(File.Open("C:/temp/Results/SQLite.csv", FileMode.Append));
-			StreamWriter PointerWriter = new StreamWriter(File.Open("C:/temp/Results/Pointer.csv", FileMode.Append));
+			StreamWriter FasterWriter = new StreamWriter(File.Open("C:/temp/Results/Faster.csv", FileMode.Append));
 			sequentialWriter.WriteLine($"{wallet},{sequential}");
 			SQLiteWriter.WriteLine($"{wallet},{sqlLite}");
-			PointerWriter.WriteLine($"{wallet},{pointer}");
+			FasterWriter.WriteLine($"{wallet},{faster}");
 
 			sequentialWriter.Close();
 			SQLiteWriter.Close();
-			PointerWriter.Close();
+			FasterWriter.Close();
 		}
 
 		#endregion
