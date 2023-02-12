@@ -1622,25 +1622,6 @@ namespace CSharpChainNetwork
 			return new Tuple<TimeSpan, TimeSpan>(temp,timer.Elapsed);
 		}
 
-		static Tuple<TimeSpan,TimeSpan> SearchForWalletUsingFileIndex(string key)
-        {
-			Stopwatch timer = new Stopwatch();
-			//PointerForIndex util = new PointerForIndex();
-			PointerIndexV2 util = new PointerIndexV2();
-			timer.Start();
-			string[] locations = util.ReadIndex(key);
-			//List<int> locations = util.SearchByPointer(key);
-			//List<int> locations = util.ReadFromIndexFile(key);
-			Console.WriteLine($"Started Searching for:{key}");
-			TimeSpan temp = timer.Elapsed;
-			Console.WriteLine($"Time Taken For Finding Locations:{temp}");
-			decimal amount = InternalSearchBlockLocationsForPointerIndex(locations,key);
-			timer.Stop();
-			Console.WriteLine($"Amount For {key}:{amount}");
-			Console.WriteLine($"Time Taken for Pointer Index:{timer.Elapsed}");
-			return new Tuple<TimeSpan, TimeSpan>(temp,timer.Elapsed);
-		}
-
 		static decimal InternalSearchBlockLocationsForPointerIndex(string [] locations, string key)
         {
 			Stream stream = File.OpenRead(master);
