@@ -78,6 +78,24 @@ namespace CSharpChainModel
 			return list;
 		}
 
+		public string SearchForTransactionGuid(string text,string guid)
+        {
+			string toReturn = "";
+			List<string> arr = text.Split(']').ToList<string>();
+			arr.RemoveAt(arr.Count - 1);
+			foreach (string trans in arr)
+			{
+
+				int open = trans.IndexOf('[');
+                if (guid == trans.Substring(open+1))
+                {
+					toReturn = trans.Substring(open + 1);
+				}
+			}
+
+			return toReturn;
+        }
+
 		public UserTransaction ToUserTransaction(int blockNum)
         {	
 

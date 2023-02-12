@@ -13,7 +13,7 @@ namespace CSharpChainNetwork.Faster
     {
         FasterKVSettings<string, string> config;
         FasterKV<string, string> store;
-
+        public string name;
         FasterKVSettings<byte[], byte []> byteConfig;
         FasterKV<byte[], byte[]> byteStore;
 
@@ -28,6 +28,7 @@ namespace CSharpChainNetwork.Faster
             var log = Devices.CreateLogDevice($"{path}/Snapshot.log");
             byteConfig = new FasterKVSettings<byte[], byte[]>(path) { TryRecoverLatest = true,MutableFraction = 0.9};
             byteStore = new FasterKV<byte[], byte []>(byteConfig);
+            name = path;
         }
         public void Destroy(bool isByte)
         {
@@ -234,8 +235,7 @@ namespace CSharpChainNetwork.Faster
             var funcs = new SimpleFunctions<string, string>((a, b) => a + b);
             using (var session = store.NewSession(funcs))
             {
-                session.RMW(ref key,ref input);
-                
+                session.RMW(ref key,ref input);  
             };
         }
 
@@ -272,6 +272,7 @@ namespace CSharpChainNetwork.Faster
 
         public void BuildWalletIndex(long blockSize, string master)
         {
+            int locationLimit = 1000;
             int intBlock = int.Parse(blockSize.ToString());
             BinaryReader reader = new BinaryReader(File.OpenRead(master), Encoding.ASCII);
             long fileLength = reader.BaseStream.Length / blockSize;
@@ -296,13 +297,50 @@ namespace CSharpChainNetwork.Faster
                 }
 
             }
+            List<FastDB> dbList = new List<FastDB>();
+            dbList.Add(new FastDB($"C:/temp/FASTER/wallets/{0}", true));
             foreach (KeyValuePair<string, StringBuilder> kvp in index)
             {
-                Console.WriteLine(kvp.Key);
-                Upsert(GetBytes(kvp.Key),GetBytes(kvp.Value.ToString()));
+                int overflowCount = 0;
+                string temp = kvp.Value.ToString();
+                string[] tempArr = temp.Substring(1).Split(',');
+                StringBuilder builder = new StringBuilder();          
+                for (int i = 0; i < tempArr.Length; i++)
+                {
+                    builder.Append(tempArr[i]);
+                    builder.Append(',');
+                    if (((i % locationLimit) == 0) && i != 0)
+                    {  
+                        try
+                        {
+                            dbList[overflowCount].Upsert(GetBytes(kvp.Key), GetBytes(builder.ToString()));
+                        }
+                        catch (Exception e)
+                        {
+                            //Console.WriteLine(e.Message);
+                            dbList.Add(new FastDB($"C:/temp/FASTER/wallets/{overflowCount}", true));
+                            dbList[overflowCount].Upsert(GetBytes(kvp.Key), GetBytes(builder.ToString()));
+                        }
+                        overflowCount++;
+                        builder = new StringBuilder();
+                    }
+                }
+                try{
+                    dbList[overflowCount].Upsert(GetBytes(kvp.Key), GetBytes(builder.ToString()));
+                }
+                catch (Exception e)
+                {
+                    dbList.Add(new FastDB($"C:/temp/FASTER/wallets/{overflowCount}", true));
+                    dbList[overflowCount].Upsert(GetBytes(kvp.Key), GetBytes(builder.ToString()));
+                }
                 
             }
-            TakeByteCheckPoint();
+            foreach (FastDB fast in dbList)
+            {
+                fast.TakeByteCheckPoint();
+                fast.Destroy(true);
+            }
+            //TakeByteCheckPoint();
             reader.Close();
         }
 
