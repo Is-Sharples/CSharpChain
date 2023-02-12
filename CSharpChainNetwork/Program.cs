@@ -710,14 +710,6 @@ namespace CSharpChainNetwork
 
 		}
 
-		static void GeneratePointerIndexFromMaster()
-		{
-			PointerForIndex pointer = new PointerForIndex();
-			pointer.GenerateIndexFromFile(master, blockSize);
-
-
-		}
-
 		static void AppendSQLTransactionIndex(Dictionary<Block,long> blockLocs)
         {
 			SQLiteController sequel = new SQLiteController(database);
@@ -1074,30 +1066,6 @@ namespace CSharpChainNetwork
 		#endregion
 
 		#region utilities
-
-		static void InternalShowProgress(int place, long total)
-		{
-			if (place == (total) * (0.25))
-			{
-				Console.WriteLine("25% is done");
-			}
-			else if (place == (total) * (0.5))
-			{
-				Console.WriteLine("Half way there, 50% is done");
-			}
-			else if (place == (total) * (0.75))
-			{
-				Console.WriteLine("Nearly There,75% is done");
-			}
-			else if (place == (total) * (0.9))
-			{
-				Console.WriteLine("So Close, 90% is done");
-			}
-			else if (place == (total) * (0.15))
-			{
-				Console.WriteLine("We've barely started, 15% is done");
-			}
-		}
 
 		static void InternalShowProgressLong(long place, long total)
 		{
@@ -1633,24 +1601,6 @@ namespace CSharpChainNetwork
 			Console.WriteLine($"Amount For {key}:{amount}");
 			Console.WriteLine($"Time Taken for Pointer Index:{timer.Elapsed}");
 			return new Tuple<TimeSpan, TimeSpan>(temp,timer.Elapsed);
-		}
-
-		static TimeSpan SearchForWalletUsingPointerIndex(string key)
-        {
-			Stopwatch timer = new Stopwatch();
-			//PointerForIndex util = new PointerForIndex();
-			PointerForIndex util = new PointerForIndex();
-			timer.Start();
-			
-			string[] locations = util.SearchByPointer(key);
-			//string [] locations = util.ReadFromIndexFile(key);
-			Console.WriteLine($"Started Searching for:{key}");
-			Console.WriteLine($"Time Taken For Finding Locations:{timer.Elapsed}");
-			decimal amount = InternalSearchBlockLocationsForPointerIndex(locations, key);
-			timer.Stop();
-			Console.WriteLine($"Amount For {key}:{amount}");
-			Console.WriteLine($"Time Taken for Pointer Index:{timer.Elapsed}");
-			return timer.Elapsed;
 		}
 
 		static decimal InternalSearchBlockLocationsForPointerIndex(string [] locations, string key)
