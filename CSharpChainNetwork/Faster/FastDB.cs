@@ -236,33 +236,6 @@ namespace CSharpChainNetwork.Faster
             reader.Close();
         }
 
-        public void BuiltTransactionIndex(long blockSize, string master)
-        {
-            int intBlock = int.Parse(blockSize.ToString());
-            BinaryReader reader = new BinaryReader(File.OpenRead(master), Encoding.ASCII);
-            long fileLength = reader.BaseStream.Length / blockSize;
-            Transaction util = new Transaction();
-            Dictionary<byte[], byte[]> kvsTrans = new Dictionary<byte[], byte[]>();
-
-            for (long i = 1; i < fileLength; i++)
-            {
-                Console.WriteLine($"{i}/{fileLength}");
-                reader.BaseStream.Seek(i * blockSize, SeekOrigin.Begin);
-                string blockData = GetString(reader.ReadBytes(intBlock));
-                blockData = blockData.Substring(85, 37803);
-                string hash = util.GetBlockHash(blockData);
-                kvsTrans.Add(GetBytes(hash),GetBytes(i.ToString()));
-
-            }
-
-            foreach (KeyValuePair<byte[],byte[]> kvp in kvsTrans)
-            {
-                Upsert(kvp.Key,kvp.Value);
-            }
-            TakeByteCheckPoint();
-        }
-
-
         private byte[] GetBytes(string input)
         {
             return Encoding.ASCII.GetBytes(input);

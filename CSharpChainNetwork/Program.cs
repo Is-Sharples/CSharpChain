@@ -1,13 +1,11 @@
 ﻿using CSharpChainModel;
 using CSharpChainNetwork.Faster;
 using CSharpChainNetwork.SQL_Class;
-using CSharpChainNetwork.PointerIndex;
 using CSharpChainServer;
 using Microsoft.Owin.Hosting;
 using Newtonsoft.Json;
 using System.Diagnostics;
 using System;
-using System.Threading;
 using System.IO;
 using BrotliSharpLib;
 using System.Collections.Generic;
@@ -102,6 +100,9 @@ namespace CSharpChainNetwork
 					var command = commandLine.Split(' ');
 					switch (command[0])
 					{
+						case "cls":
+							Console.Clear();
+							break;
 						case "quit":
 						case "q":
 							commandLine = "q";
@@ -169,100 +170,62 @@ namespace CSharpChainNetwork
 							CommandBlockchainUpdate();
 							break;
 						case "gen":
-							//GenerateSQLLite(true);
-							if (command[1].Length > 0)
-                            {
-								GenerateBlocks(int.Parse(command[1]));
-								
-							}else
-                            {
-								ShowIncorrectCommand();
-							}
-							break;
-						case "search":
-						case "s":
-							SearchTransactionsByNode(command[1], command[2]);
+							GenerateBlocks(int.Parse(command[1]));							
 							break;
 						case "f":
 						case "freq":
 							GetFrequencyDistribution();
-							break;
-						case "gensql":
-							GenerateSQLLite(true);
-							GetLocationOfBlocks();
-							break;
-						case "ss":
-							SearchForWalletInSQLite(command[1]);
-							break;
-						case "script":
-							Stopwatch timer = new Stopwatch();
-							timer.Start();
+							break;				
+						case "batch-gen":						
                             for (int i = 0; i < int.Parse(command[1]); i++)
                             {
 								GenerateBlocks(10000);
 								Console.WriteLine($"finished loop:{i}");
 							}
-							Console.WriteLine($"Time Taken for {command[1]} blocks: {timer.Elapsed}");
-							//GetFrequencyDistribution();
-
-							Console.WriteLine("Time Taken for 50000 blocks and freq report validity check:"+ timer.Elapsed.ToString());
-							timer.Stop();
 							break;
 						case "runtestfor":
 							RunTimeTestFor(command[1]);
 							break;
-						case "cls":
-							Console.Clear();
-							break;
 						case "runtest":
 							RunWalletTimeTests(command[1]);
 							break;
-						case "ftrans":
-							var temp = new FastDB(fastTrans,true);
-							temp.SearchForTransaction(GetBytes($"{command[1].Trim().ToUpper()}"));
+						case "seq-t":
+							InternalSearchForTransactionSequenitally(command[1]);
 							break;
-						case "genkvs-wallet":
-							var test = new FastDB(fastWallets,true);
-							test.BuildWalletIndex(longBlockSize,master);
-							break;
-						case "genkvs-trans":
-							var tester = new FastDB(fastTrans, true);
-							tester.BuiltTransactionIndex(longBlockSize,master);
-							break;
-						case "kvs":
-							Stopwatch tajmer = new Stopwatch();
-							tajmer.Start();
-							var kvs = new FastDB(fastWallets,true);
-							string temper = kvs.SearchForKey(GetBytes(command[1]));
-							string[] array = temper.Split(',');
-							Decimal ammount = InternalSearchBlockLocationsForPointerIndex(array,command[1]);
-							Console.WriteLine($"Wallet Balance:{ammount}");
-							Console.WriteLine($"Time taken for KVS:{tajmer.Elapsed}");
-							tajmer.Stop();
-							break;
-						case "bs":
-							InternalWalletSearchFromBrotli(command[1]);
-							break;
-						case "st":
+						case "sql-t":
 							InternalSearchSQLTransaction(command[1]);
 							break;
-						case "ft":
+						case "faster-t":
 							InternalSearchForTransactionWithKVS(command[1]);
 							break;
-						case "fs":
+						case "brotli-s":
+							InternalWalletSearchFromBrotli(command[1]);
+							break;
+						case "faster-s":
 							InternalSearchFasterWallet(command[1]);
+							break;
+						case "rle-s":
+							SearchForWalletInSQLite(command[1]);
 							break;
 						case "get-all-trans":
 							GetTransactionsForTesting();
 							break;
-						case "seqt":
-							InternalSearchForTransactionSequenitally(command[1]);
-							break;
-						case "tt":
+						case "run-trans":
 							RunTransactionTimeTest(command[1]);
 							break;
-						case "t":
+						case "gensql":
+							GenerateSQLLite(true);
+							GetLocationOfBlocks();
+							break;
+						case "faster-trans-builder":
 							PartitionedTransactionStoreBuilder();
+							break;
+						case "faster-wallet-builder":
+							var test = new FastDB(fastWallets, true);
+							test.BuildWalletIndex(longBlockSize, master);
+							break;
+						case "seq-s":
+							SearchTransactionsByNode(command[1], command[2]);
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -1456,14 +1419,12 @@ namespace CSharpChainNetwork
 				sqlFlag = true;
             }
 
-			PointerForIndex indexUtil = new PointerForIndex();
-			PointerIndexV2 index = new PointerIndexV2();
 			Transaction util = new Transaction();
 			Dictionary<Block, long> BlockLocations = new Dictionary<Block, long>();
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
 			int transNo = 512;
-			Dictionary<Block, long> toFasterIndex = new Dictionary<Block, long>();
+			
 			Random rnd = new Random();
 			List<Block> newBlocks = new List<Block>();
 			IWeightedRandomizer<string> amountRandomizer = new DynamicWeightedRandomizer<string>();
@@ -1495,25 +1456,15 @@ namespace CSharpChainNetwork
 					block = CommandBlockchainMine("System2");
 					newBlocks.Add(block);
 					BlockLocations.Add(block,BlockLength);
-					//tempUsers = util.GetUsersForPointerIndex(block);
-					//index.AppendIndex(tempUsers,BlockLength);
-					//toFasterIndex.Add(block,BlockLength);
-
 					BlockLength++;
 				}
 			}
 			block = CommandBlockchainMine("System2");
 			newBlocks.Add(block);
 			BlockLocations.Add(block, BlockLength);
-			//toFasterIndex.Add(block, BlockLength);
-			//tempUsers = util.GetUsersForPointerIndex(block);
-			//index.AppendIndex(tempUsers,BlockLength);
-			WriteFromFixedLengthToBinary("temp");
-			
+			WriteFromFixedLengthToBinary("temp");		
 			blockchainServices.RefreshBlockchain();
-			Console.WriteLine("Updating SQLite...");
-            //UpsertIntoKVSTransaction(toFasterIndex);
-            //InternalAppendKVSWalletIndex(toFasterIndex);
+			Console.WriteLine("Updating SQLite...");           
             if (sqlFlag)
             {
 				GetLocationOfBlocks();
@@ -1530,7 +1481,6 @@ namespace CSharpChainNetwork
 			Console.WriteLine($"Time Taken for generating {blocks}:" + timer.Elapsed.ToString());
 			Console.WriteLine("Finished!!");
 			timer.Stop();
-			//indexUtil.SortFirstSeen();
 		}
 
 		static void GetFrequencyDistribution()
