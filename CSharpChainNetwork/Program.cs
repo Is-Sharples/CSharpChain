@@ -214,12 +214,6 @@ namespace CSharpChainNetwork
 						case "cls":
 							Console.Clear();
 							break;
-						case "genindex":
-							Stopwatch stopwatch = new Stopwatch();
-							stopwatch.Start();
-							GenerateFileIndex();
-							Console.WriteLine($"Time taken for generating indexes:{stopwatch.Elapsed}");
-							break;
 						case "runtest":
 							RunWalletTimeTests(command[1]);
 							break;
@@ -572,11 +566,7 @@ namespace CSharpChainNetwork
 		#endregion
 
 		#region IndexGenerating
-		static void GenerateFileIndex()
-		{
-			PointerIndexV2 file = new PointerIndexV2();
-			file.GenerateIndexFromFile(master, blockSize);
-		}
+		
 		static void InternalAppendSQLiteIndex(Block[] blocks)
 		{
 			Stopwatch timer = new Stopwatch();
