@@ -7,6 +7,7 @@ using Microsoft.Owin.Hosting;
 using Newtonsoft.Json;
 using System.Diagnostics;
 using System;
+using System.Threading;
 using System.IO;
 using BrotliSharpLib;
 using System.Collections.Generic;
@@ -74,11 +75,31 @@ namespace CSharpChainNetwork
 				do
 				{
 					ShowCommandLine();
-		
-					commandLine = Console.ReadLine().ToLower();
-					commandLine += " ";
+					commandLine = "q";
+                    if (args.Length > 2)
+                    {
+						switch (args[1])
+						{
+							case "faster":
+								string wallet = args[2];
+								Console.WriteLine($"Running Faster Test For:{wallet}");
+								Tuple<TimeSpan, TimeSpan> temp = InternalSearchFasterWallet(wallet);
+								StreamWriter FasterWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/Faster.csv", FileMode.Append));
+								FasterWriter.WriteLine($"{wallet},{temp.Item1},{temp.Item2}");
+								FasterWriter.Close();
+								break;
+							case "runTest":
+								RunTimeTestFor(args[2]);
+								break;
+						}
+					}
+					else
+                    {
+						commandLine = Console.ReadLine().ToLower();
+						commandLine += " ";
+					}
+                    
 					var command = commandLine.Split(' ');
-
 					switch (command[0])
 					{
 						case "quit":
@@ -290,7 +311,7 @@ namespace CSharpChainNetwork
 
 		#region Internal Searching functions
 
-		static decimal InternalParseBlockLocations(string[] locations, string key)
+		static Tuple<decimal,TimeSpan> InternalParseBlockLocations(string[] locations, string key)
 		{
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
@@ -341,11 +362,12 @@ namespace CSharpChainNetwork
 			}
 			timer.Stop();
 			binReader.Close();
+			TimeSpan resultTime = timer.Elapsed;
 			decimal amount = InternalCalculateAmount(Transactions);
 			Console.WriteLine($"Wallet Balance for {key}: {amount}");
 			stream.Close();
 			binReader.Close();
-			return amount;
+			return new Tuple<decimal, TimeSpan>(amount,resultTime);
 		}
 
 		static List<Transaction> InternalSeekTransactionsFromFile(string key)
@@ -413,8 +435,8 @@ namespace CSharpChainNetwork
 			List<Transaction> transactions = new List<Transaction>();
 			for (long i = 0; i < fileLength/longBlockSize; i++)
             {
-				int c = (int)i;
-                if (locations[c] == '1')
+				//Console.WriteLine(i);
+                if (locations[(int) i] == '1')
                 {
 					binaryReader.BaseStream.Seek(i * longBlockSize, SeekOrigin.Begin);
 					string blockData = GetString(binaryReader.ReadBytes(blockSize));
@@ -426,9 +448,11 @@ namespace CSharpChainNetwork
                     }
 				}
 			}
-			decimal amount = InternalCalculateAmount(transactions);
 			results = timer.Elapsed;
+			decimal amount = InternalCalculateAmount(transactions);
+			
 			binaryReader.Close();
+			sequel.CloseConnection();
 			Console.WriteLine($"Amount for {key}:{amount}");
 			Console.WriteLine($"Time Taken for getting Locations:{getLoc}");
 			Console.WriteLine($"Time Taken for Amount:{results}");
@@ -1324,17 +1348,20 @@ namespace CSharpChainNetwork
 				}
 				appeared.Add(wallet);
 				string walletString = wallet.ToString();
-				SequentialSearch.Add(walletString, SearchTransactionsByNode(walletString, ""));
+				Console.WriteLine("Searching Sequentially");
+				SequentialSearch.Add(walletString, SearchTransactionsByNode(walletString, ""));				
 				showLine();
-				FasterSearch.Add(walletString, InternalSearchFasterWallet(walletString));
-				showLine();
+				Console.WriteLine("Searching using SQL:BROTLI Compression");
 				BrotliSearch.Add(walletString, InternalWalletSearchFromBrotli(walletString));
 				showLine();
+				Console.WriteLine("Searching using SQL:RLE encoding");
 				SQLiteSearch.Add(walletString,SearchForWalletInSQLite(walletString));
+				
 			}
+			
 			StreamWriter sequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/Sequential.csv", FileMode.Append));
 			StreamWriter BrotliWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/Brotli.csv", FileMode.Append));
-			StreamWriter FasterWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/Faster.csv", FileMode.Append));
+			
 			StreamWriter SqLiteWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/SQLite.csv", FileMode.Append));
 			foreach (KeyValuePair<string, TimeSpan> kvp in SequentialSearch)
 			{
@@ -1343,10 +1370,6 @@ namespace CSharpChainNetwork
 			foreach (KeyValuePair<string, Tuple<TimeSpan, TimeSpan>> kvp in BrotliSearch)
 			{
 				BrotliWriter.WriteLine($"{kvp.Key},{kvp.Value.Item1},{kvp.Value.Item2}");
-			}
-			foreach (KeyValuePair<string, Tuple<TimeSpan, TimeSpan>> kvp in FasterSearch)
-			{
-				FasterWriter.WriteLine($"{kvp.Key},{kvp.Value.Item1},{kvp.Value.Item2}");
 			}
 			foreach (KeyValuePair<string, Tuple<TimeSpan,TimeSpan>> kvp in SQLiteSearch)
             {
@@ -1357,7 +1380,6 @@ namespace CSharpChainNetwork
 			Console.WriteLine($"Time Taken for running tests:{timer.Elapsed}");
 			sequentialWriter.Close();
 			BrotliWriter.Close();
-			FasterWriter.Close();
 			SqLiteWriter.Close();
 		}
 
@@ -1365,29 +1387,28 @@ namespace CSharpChainNetwork
 		{
 			Stopwatch timer = new Stopwatch();
 			timer.Start();
-			Tuple<TimeSpan, TimeSpan> brotli;
-			Tuple<TimeSpan, TimeSpan> faster;
+			Tuple<TimeSpan, TimeSpan> brotli;			
 			Tuple<TimeSpan, TimeSpan> sqlLite;
 			TimeSpan sequential;
-
+			Console.WriteLine("Started Searching Sequentially");
+			showLine();
 			sequential = SearchTransactionsByNode(wallet, "false");
-			brotli = InternalWalletSearchFromBrotli(wallet);
-			faster = InternalSearchFasterWallet(wallet);
+			Console.WriteLine("Started Searching using RLE method");
 			sqlLite = SearchForWalletInSQLite(wallet);
+			Console.WriteLine("Started Searching From Brotli");
+			brotli = InternalWalletSearchFromBrotli(wallet);
+			
 
 			StreamWriter sequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/Sequential.csv", FileMode.Append));
 			StreamWriter BrotliWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/Brotli.csv", FileMode.Append));
-			StreamWriter FasterWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/Faster.csv", FileMode.Append));
 			StreamWriter SqLiteWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/SQLite.csv", FileMode.Append));
 
 			sequentialWriter.WriteLine($"{wallet},{sequential}");
 			BrotliWriter.WriteLine($"{wallet},{brotli.Item1} , {brotli.Item2}");
-			FasterWriter.WriteLine($"{wallet},{faster.Item1},{faster.Item2}");
 			SqLiteWriter.WriteLine($"{wallet},{sqlLite.Item1},{sqlLite.Item2}");
 
 			sequentialWriter.Close();
 			BrotliWriter.Close();
-			FasterWriter.Close();
 			SqLiteWriter.Close();
 		}
 
@@ -1698,11 +1719,12 @@ namespace CSharpChainNetwork
 			reader.Close();
 			TimeSpan temp = timer.Elapsed;
 			Console.WriteLine($"Time Taken For Finding Locations:{temp}");
-			decimal amount = InternalParseBlockLocations(locations.ToArray(), key);
+			Tuple<decimal,TimeSpan> amountTime = InternalParseBlockLocations(locations.ToArray(), key);
+			decimal amount = amountTime.Item1;
 			Console.WriteLine("Time Taken:" + timer.Elapsed.ToString());
 			timer.Stop();
-
-			return new Tuple<TimeSpan, TimeSpan>(temp,timer.Elapsed);
+			sql.CloseConnection();
+			return new Tuple<TimeSpan, TimeSpan>(temp,amountTime.Item2);
 		}
 
 		static decimal InternalSearchBlockLocationsForPointerIndex(string [] locations, string key)

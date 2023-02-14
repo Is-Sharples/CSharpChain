@@ -22,20 +22,33 @@ namespace CSharpChainNetwork.Faster
             var log = Devices.CreateLogDevice($"{path}/Snapshot.log");
             config = new FasterKVSettings<string, string>(path) { LogDevice= log, TryRecoverLatest = true, MemorySize = 524288 };
             store = new FasterKV<string, string>(config);
+            
         }
 
         public FastDB(string path, bool isByte) {
             var log = Devices.CreateLogDevice($"{path}/Snapshot.log");
-            byteConfig = new FasterKVSettings<byte[], byte[]>(path) { TryRecoverLatest = true,MutableFraction = 0.9};
+            byteConfig = new FasterKVSettings<byte[], byte[]>(path) { TryRecoverLatest = true,MutableFraction = 0.9 };
             byteStore = new FasterKV<byte[], byte []>(byteConfig);
+            //byteStore.Log.EmptyPageCount = byteStore.Log.BufferSize - 1;
             name = path;
         }
         public void Destroy(bool isByte)
         {
             if (isByte)
             {
+                //Console.WriteLine(byteStore.ToString());
+                //Console.WriteLine(byteStore.Log.BufferSize);
+                
+                byteStore.DumpDistribution();
+                //Console.WriteLine(byteStore.OverflowBucketCount);
+                byteStore.Log.FlushAndEvict(true);
+                byteStore.Log.DisposeFromMemory();
+                
                 byteConfig.Dispose();
                 byteStore.Dispose();
+                byteStore = null;
+                byteConfig = null;
+                GC.Collect();
             }else
             {
                 store.Dispose();
@@ -272,7 +285,7 @@ namespace CSharpChainNetwork.Faster
 
         public void BuildWalletIndex(long blockSize, string master)
         {
-            int locationLimit = 1000;
+            int locationLimit = 10000;
             int intBlock = int.Parse(blockSize.ToString());
             BinaryReader reader = new BinaryReader(File.OpenRead(master), Encoding.ASCII);
             long fileLength = reader.BaseStream.Length / blockSize;
