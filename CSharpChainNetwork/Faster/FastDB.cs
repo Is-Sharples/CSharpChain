@@ -16,15 +16,6 @@ namespace CSharpChainNetwork.Faster
         public string name;
         FasterKVSettings<byte[], byte []> byteConfig;
         FasterKV<byte[], byte[]> byteStore;
-
-        public FastDB(string path)
-        {
-            var log = Devices.CreateLogDevice($"{path}/Snapshot.log");
-            config = new FasterKVSettings<string, string>(path) { LogDevice= log, TryRecoverLatest = true, MemorySize = 524288 };
-            store = new FasterKV<string, string>(config);
-            
-        }
-
         public FastDB(string path, bool isByte) {
             var log = Devices.CreateLogDevice($"{path}/Snapshot.log");
             byteConfig = new FasterKVSettings<byte[], byte[]>(path) { TryRecoverLatest = true,MutableFraction = 0.9 };
@@ -49,10 +40,6 @@ namespace CSharpChainNetwork.Faster
                 byteStore = null;
                 byteConfig = null;
                 GC.Collect();
-            }else
-            {
-                store.Dispose();
-                config.Dispose();
             }
             
         }
@@ -87,38 +74,6 @@ namespace CSharpChainNetwork.Faster
             return GetString(outputBytes);
         }
 
-        public string SearchForTransaction(string key)
-        {
-            key = key.Substring(0,key.IndexOf('&'));
-            string output = "";
-            var funcs = new SimpleFunctions<string, string>((a, b) => a + b);
-            var session = store.NewSession(funcs);
-            if (Exists(store))
-                Console.WriteLine($"Recovered from Snapshot");
-
-            store.Log.FlushAndEvict(true);
-            var status = session.Read(ref key, ref output);
-            if (status.IsPending)
-            {
-                session.CompletePendingWithOutputs(out var iter, true);
-
-                while (iter.Next())
-                {
-                    if (iter.Current.Status.Found) {
-                        output = iter.Current.Output;
-                        Console.WriteLine(iter.Current.Output);
-                    }  
-                    else
-                        Console.WriteLine("Not Found in Iter");
-                }
-                iter.Dispose();
-            }
-            else
-                Console.WriteLine("Not Found");
-            session.Dispose();
-            return output;
-        }
-
         public string SearchForTransaction(byte[] byteKey)
         {
             string key = GetString(byteKey);
@@ -151,53 +106,6 @@ namespace CSharpChainNetwork.Faster
             session.Dispose();
             return GetString(output);
         }
-        public string SearchForKey(string key)
-        {
-            string output = "";
-            var funcs = new SimpleFunctions<string, string>((a, b) => a + b);
-            var session = store.NewSession(funcs);
-            if (Exists(store))
-                Console.WriteLine($"Recovered from Snapshot");
-
-            store.Log.FlushAndEvict(true);
-            var status = session.Read(ref key, ref output);
-            if (status.IsPending)
-            {
-                session.CompletePendingWithOutputs(out var iter, true);
-
-                while (iter.Next())
-                {
-                    if (iter.Current.Status.Found)
-                    {
-                        output = iter.Current.Output;
-                        Console.WriteLine(iter.Current.Output);
-                    }
-                    else
-                        Console.WriteLine("Not Found in Iter");
-                }
-                iter.Dispose();
-            }
-            else
-                Console.WriteLine("Not Found");
-            session.Dispose();
-            return output;
-        }
-
-        public void Upsert(string key, string value, bool one)
-        {
-            var funcs = new SimpleFunctions<string, string>((a, b) => a + b);
-            using (var session = store.NewSession(funcs))
-            {
-                session.Upsert(ref key, ref value);
-                //Console.WriteLine("Taking full checkpoint");
-                if (one)
-                {
-                    store.TryInitiateFullCheckpoint(out _, CheckpointType.Snapshot);
-                    store.CompleteCheckpointAsync().AsTask().GetAwaiter().GetResult();
-                }
-                
-            };
-        }
 
         public void Upsert(byte[] key, byte[] value)
         {
@@ -217,17 +125,6 @@ namespace CSharpChainNetwork.Faster
             
         }
 
-        public void TakeCheckPoint()
-        {
-            var funcs = new SimpleFunctions<string, string>((a, b) => a + b);
-            using (var session = store.NewSession(funcs))
-            {
-                Console.WriteLine("Taking full checkpoint");
-                store.TryInitiateFullCheckpoint(out _, CheckpointType.Snapshot);
-                store.CompleteCheckpointAsync().AsTask().GetAwaiter().GetResult();
-            };
-        }
-
         public void TakeByteCheckPoint()
         {
             var funcs = new SimpleFunctions<byte[], byte[]>((a,b) => {
@@ -243,15 +140,6 @@ namespace CSharpChainNetwork.Faster
             };
         }
 
-        public void Update(string key,string input)
-        {
-            var funcs = new SimpleFunctions<string, string>((a, b) => a + b);
-            using (var session = store.NewSession(funcs))
-            {
-                session.RMW(ref key,ref input);  
-            };
-        }
-
         public void Update(byte[] key, byte[] input)
         {
             var funcs = new SimpleFunctions<byte[], byte[]>((a, b) => {
@@ -263,15 +151,6 @@ namespace CSharpChainNetwork.Faster
             {
                 session.RMW(ref key, ref input);
             };
-        }
-
-        private bool Exists(FasterKV<string, string> store)
-        {
-            if (store.RecoveredVersion == 1)
-            {
-                return false;
-            }
-            return true;
         }
 
         public bool Exists()
