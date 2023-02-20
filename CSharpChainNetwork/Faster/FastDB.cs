@@ -164,7 +164,7 @@ namespace CSharpChainNetwork.Faster
 
         public void BuildWalletIndex(long blockSize, string master)
         {
-            int locationLimit = 10000;
+            int locationLimit = 20000;
             int intBlock = int.Parse(blockSize.ToString());
             BinaryReader reader = new BinaryReader(File.OpenRead(master), Encoding.ASCII);
             long fileLength = reader.BaseStream.Length / blockSize;
