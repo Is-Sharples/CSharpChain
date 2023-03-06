@@ -120,8 +120,11 @@ namespace CSharpChainNetwork.MatrixIndex
 					Console.WriteLine($"{i}/{fileLength / blockSize}");
 					reader.BaseStream.Seek(i * blockSize, SeekOrigin.Begin);
 					string blockData = Encoding.ASCII.GetString(reader.ReadBytes((int)blockSize));
-					Block block = engine.ReadString(blockData)[0];
-					transLocations.Add(block, i);
+                    if (blockData != "")
+                    {
+						Block block = engine.ReadString(blockData)[0];
+						transLocations.Add(block, i);
+					}
 					if (i % 25000 == 0)
 					{
 						Dictionary<string, List<Tuple<string, string>>> index = new Dictionary<string, List<Tuple<string, string>>>();

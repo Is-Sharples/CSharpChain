@@ -100,6 +100,14 @@ namespace CSharpChainNetwork
 								SequentialWriter.WriteLine($"{wallet2},{tester.Item1},{tester.Item2}");
 								SequentialWriter.Close();
 								break;
+							case "runMatrixTransaction":
+								string guid = args[2];
+								Console.WriteLine($"Running Matrix Test for {guid}");
+								double res = InternalSearchMatrixTransaction(guid);
+								StreamWriter writer = new StreamWriter(File.Open("C:/temp/Results/Transactions/Matrix.csv", FileMode.Append));
+								writer.WriteLine($"{guid},{res}");
+								writer.Close();
+								break;
 						}
 					}
 					else
@@ -245,8 +253,8 @@ namespace CSharpChainNetwork
 						case "ms":
 							InternalSearchMatrixWallet(command[1]);
 							break;
-						case "t":
-                            for (int i = 0; i < 7;i++)
+						case "build-matrix-t":
+                            for (int i = 7; i < 8;i++)
                             {
 								Matrix metrix = new Matrix(matrixLoc);
 								metrix.BuildTransactionIndex(master, longBlockSize, i, i + 1);
@@ -254,6 +262,9 @@ namespace CSharpChainNetwork
 								Thread.Sleep(120);
 							}
 							Console.WriteLine("FIN");
+							break;
+						case "t":
+							InternalSearchMatrixTransaction(command[1]);
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -579,6 +590,19 @@ namespace CSharpChainNetwork
 			return new Tuple<double, double>(locTime,findTime);
 		}
 
+		static double InternalSearchMatrixTransaction(string guid)
+        {
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
+			Matrix matrix = new Matrix(matrixLoc);
+			string guidPrefix = guid.Substring(0,5);
+			Dictionary<string, string> result = matrix.DeSerialiseTransMatrix(guidPrefix);
+			string location = result[guid];
+			long loc = long.Parse(location);
+			InternalGetTransactionFromFile(loc, guid);
+			timer.Stop();
+			return timer.Elapsed.TotalMilliseconds;
+        }
 
 
 		#endregion
@@ -1440,8 +1464,10 @@ namespace CSharpChainNetwork
 				
 				double sequential = InternalSearchForTransactionSequenitally(guid);
 				double sqLite = InternalSearchSQLTransaction(guid);
+				
 				showLine();
 				double faster = InternalSearchForTransactionWithKVS(guid);
+				
 
 				StreamWriter sequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Transactions/Sequential.csv", FileMode.Append));
 				StreamWriter SQLiteWriter = new StreamWriter(File.Open("C:/temp/Results/Transactions/SQLite.csv", FileMode.Append));
