@@ -20,7 +20,7 @@ namespace CSharpChainNetwork.Faster
             var log = Devices.CreateLogDevice($"{path}/Snapshot.log");
             byteConfig = new FasterKVSettings<byte[], byte[]>(path) { TryRecoverLatest = true,MutableFraction = 0.9 };
             byteStore = new FasterKV<byte[], byte []>(byteConfig);
-            //byteStore.Log.EmptyPageCount = byteStore.Log.BufferSize - 1;
+            
             name = path;
         }
         public void Destroy(bool isByte)

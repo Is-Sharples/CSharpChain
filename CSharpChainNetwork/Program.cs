@@ -1,6 +1,7 @@
 ﻿using CSharpChainModel;
 using CSharpChainNetwork.Faster;
 using CSharpChainNetwork.SQL_Class;
+using CSharpChainNetwork.MatrixIndex;
 using CSharpChainServer;
 using Microsoft.Owin.Hosting;
 using Newtonsoft.Json;
@@ -12,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using FileHelpers;
 using Weighted_Randomizer;
 
@@ -20,17 +22,18 @@ namespace CSharpChainNetwork
 {
 	static class Program
 	{
-		static string fastWallets = "C:/temp/FASTER/wallets";
-		static string fastTrans = "C:/temp/FASTER/transactions";
-		static string database = "C:/temp/SQLite/blockchain";
-		static string master = "C:/temp/Master.dat";
+		static readonly string fastWallets = "C:/temp/FASTER/wallets";
+        static readonly string fastTrans = "C:/temp/FASTER/transactions";
+		static readonly string database = "C:/temp/SQLite/blockchain";
+		static readonly string master = "C:/temp/Master.dat";
+		static readonly string matrixLoc = "C:/temp/Matrix/matrix.dat";
 		static string baseAddress;
 		public static BlockchainServices blockchainServices;
 		public static NodeServices nodeServices;
-		static int blockSize = 37888;
-		static long longBlockSize = 37888;
-		static bool useNetwork = true;
-		static int maxUsers = 2000;
+		static readonly int blockSize = 37888;
+		static readonly long longBlockSize = 37888;
+		static readonly bool useNetwork = true;
+		static readonly int maxUsers = 2000;
 		static Transaction utilities = new Transaction();
 		static User[] masterUsers = new User[maxUsers];
 		
@@ -91,9 +94,10 @@ namespace CSharpChainNetwork
 								break;
 							case "runSeqTest":
 								string wallet2 = args[2];
-								double tester = SearchTransactionsByNode(args[2],"");
-								StreamWriter SequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/Sequential.csv", FileMode.Append));
-								SequentialWriter.WriteLine($"{wallet2},{tester}");
+								Console.WriteLine($"Running Matrix Test For:{wallet2}");
+								Tuple<double,double> tester = InternalSearchMatrixWallet(args[2]);
+								StreamWriter SequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/Matrix.csv", FileMode.Append));
+								SequentialWriter.WriteLine($"{wallet2},{tester.Item1},{tester.Item2}");
 								SequentialWriter.Close();
 								break;
 						}
@@ -233,6 +237,23 @@ namespace CSharpChainNetwork
 							break;
 						case "seq-s":
 							SearchTransactionsByNode(command[1], command[2]);
+							break;
+						case "matrix-build":
+							Matrix matrix = new Matrix(matrixLoc);
+							matrix.BuildMatrixIndex(master,longBlockSize);
+							break;
+						case "ms":
+							InternalSearchMatrixWallet(command[1]);
+							break;
+						case "t":
+                            for (int i = 0; i < 7;i++)
+                            {
+								Matrix metrix = new Matrix(matrixLoc);
+								metrix.BuildTransactionIndex(master, longBlockSize, i, i + 1);
+								Console.WriteLine("Sleeping");
+								Thread.Sleep(120);
+							}
+							Console.WriteLine("FIN");
 							break;
 						default:
 							ShowIncorrectCommand();
@@ -415,7 +436,6 @@ namespace CSharpChainNetwork
 			timer.Stop();
 			results = timer.Elapsed.TotalMilliseconds;
 			decimal amount = InternalCalculateAmount(transactions);
-			
 			binaryReader.Close();
 			sequel.CloseConnection();
 			Console.WriteLine($"Amount for {key}:{amount}");
@@ -508,6 +528,7 @@ namespace CSharpChainNetwork
 
 			for (long i = 1; i < fileLength; i++)
 			{
+				Console.WriteLine(i);
 				reader.BaseStream.Seek(i * longBlockSize, SeekOrigin.Begin);
 				string blockData = GetString(reader.ReadBytes(blockSize));
 				string temp = blockData.Substring(85, 37803);
@@ -534,6 +555,31 @@ namespace CSharpChainNetwork
 			return timer.Elapsed.TotalMilliseconds;
 
 		}
+
+		static Tuple<double,double> InternalSearchMatrixWallet(string key)
+        {
+			Stopwatch timer = new Stopwatch();
+			timer.Start();
+			Matrix matrix = new Matrix(matrixLoc);
+			var index = matrix.DeSerialiseMatrix(key);
+			string[] result = index.Value.Split(',');
+			List<long> locations = new List<long>();
+            foreach (string loc in result)
+            {
+				locations.Add(long.Parse(loc));
+            }
+			double locTime = timer.Elapsed.TotalMilliseconds;
+			List<Transaction> transactions = InternalFindBlocksFromMaster(locations,key);
+			double findTime = timer.Elapsed.TotalMilliseconds;
+			timer.Stop();
+			decimal amount = InternalCalculateAmount(transactions);
+			Console.WriteLine($"Amount for {key}: {amount}");
+			Console.WriteLine($"Time taken for locations:{locTime}");
+			Console.WriteLine($"Time taken for getting Transactions:{findTime}");
+			return new Tuple<double, double>(locTime,findTime);
+		}
+
+
 
 		#endregion
 
@@ -1216,8 +1262,9 @@ namespace CSharpChainNetwork
 		static string GetString(byte [] input)
         {
 			return Encoding.ASCII.GetString(input);
-        }
+        }	
 
+		
 
         #endregion
 
@@ -1351,6 +1398,7 @@ namespace CSharpChainNetwork
 			timer.Start();
 			Tuple<double, double> brotli;			
 			Tuple<double, double> sqlLite;
+			Tuple<double, double> matrix;
 			double sequential;
 			Console.WriteLine("Started Searching Sequentially");
 			showLine();
@@ -1359,19 +1407,22 @@ namespace CSharpChainNetwork
 			sqlLite = SearchForWalletInSQLite(wallet);
 			Console.WriteLine("Started Searching From Brotli");
 			brotli = InternalWalletSearchFromBrotli(wallet);
+			Console.WriteLine("Started Searching from Matrix");
+			matrix = InternalSearchMatrixWallet(wallet);
 			
 
 			StreamWriter sequentialWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/Sequential.csv", FileMode.Append),Encoding.ASCII);
 			StreamWriter BrotliWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/Brotli.csv", FileMode.Append),Encoding.ASCII);
 			StreamWriter SqLiteWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/SQLite.csv", FileMode.Append),Encoding.ASCII);
-
+			StreamWriter MatrixWriter = new StreamWriter(File.Open("C:/temp/Results/Wallets/Matrix.csv", FileMode.Append), Encoding.ASCII);
 			sequentialWriter.WriteLine($"{wallet},{sequential}");
 			BrotliWriter.WriteLine($"{wallet},{brotli.Item1} , {brotli.Item2}");
 			SqLiteWriter.WriteLine($"{wallet},{sqlLite.Item1},{sqlLite.Item2}");
-
+			MatrixWriter.WriteLine($"{wallet},{matrix.Item1},{matrix.Item2}");
 			sequentialWriter.Close();
 			BrotliWriter.Close();
 			SqLiteWriter.Close();
+			MatrixWriter.Close();
 		}
 
 		static void RunTransactionTimeTest(string count)
@@ -1386,6 +1437,7 @@ namespace CSharpChainNetwork
 				string[] guidInfo = guids[randomLoc].Split('+');
 				string guid = guidInfo[0];
 				Console.WriteLine(guid);
+				
 				double sequential = InternalSearchForTransactionSequenitally(guid);
 				double sqLite = InternalSearchSQLTransaction(guid);
 				showLine();
